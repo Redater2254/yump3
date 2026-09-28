@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
-import { downloadTrack, searchTracks, friendlyYtDlpError } from '../services/ytdlp';
-import { addTrack } from '../services/library';
+import { downloadTrack, searchTracks, getPlaylistInfo, friendlyYtDlpError } from '../services/ytdlp';
+import { addTrack, getTrack, createPlaylist, addTracksToPlaylist } from '../services/library';
 
 export interface DownloadTask {
   id: string; // youtube_id
@@ -12,10 +12,14 @@ export interface DownloadTask {
   errorDetail?: string;
 }
 
+export type DirectAddResult =
+  | { type: 'video' }
+  | { type: 'playlist'; total: number; title: string | null };
+
 interface DownloadContextType {
   downloadTasks: DownloadTask[];
   triggerDownload: (track: { youtube_id: string; title: string; artist: string; duration?: number; thumbnail_url?: string }) => Promise<void>;
-  handleDirectAdd: (urlOrId: string) => Promise<void>;
+  handleDirectAdd: (urlOrId: string) => Promise<DirectAddResult>;
   retryDownload: (taskId: string) => Promise<void>;
   dismissTask: (taskId: string) => void;
   clearDownloads: () => void;
@@ -25,6 +29,8 @@ interface DownloadContextType {
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined);
 
+const PLAYLIST_LIMIT = 100;
+
 function extractVideoId(input: string): string | null {
   const trimmed = input.trim();
   if (trimmed.length === 11) return trimmed;
@@ -33,9 +39,19 @@ function extractVideoId(input: string): string | null {
   return null;
 }
 
+/** Pure playlist links only; watch links that also contain a video id stay single-video. */
+function extractPlaylistId(input: string): string | null {
+  const trimmed = input.trim();
+  if (!/[?&]list=/.test(trimmed)) return null;
+  if (/[?&]v=/.test(trimmed) || /youtu\.be\/[A-Za-z0-9_-]{11}/.test(trimmed)) return null;
+  const m = trimmed.match(/[?&]list=([A-Za-z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
 export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([]);
   const inFlightRef = useRef<Set<string>>(new Set());
+  const playlistInFlightRef = useRef<Set<string>>(new Set());
 
   const updateTask = (taskId: string, patch: Partial<DownloadTask>) => {
     setDownloadTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
@@ -45,8 +61,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     taskId: string,
     youtubeId: string,
     meta: { title?: string; artist?: string; duration?: number; thumbnail_url?: string }
-  ) => {
-    if (inFlightRef.current.has(taskId)) return;
+  ): Promise<boolean> => {
+    if (inFlightRef.current.has(taskId)) return false;
     inFlightRef.current.add(taskId);
     try {
       const { filePath, duration } = await downloadTrack(youtubeId, (e: any) => {
@@ -64,6 +80,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       updateTask(taskId, { status: 'completed', progress: 100, errorMsg: undefined, errorDetail: undefined });
+      return true;
     } catch (err: any) {
       const detail = String(err?.message || err);
       updateTask(taskId, {
@@ -71,6 +88,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         errorMsg: friendlyYtDlpError(detail),
         errorDetail: detail,
       });
+      return false;
     } finally {
       inFlightRef.current.delete(taskId);
     }
@@ -87,12 +105,80 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await runDownload(youtubeId, youtubeId, track);
   };
 
-  const handleDirectAdd = async (urlOrId: string) => {
+  const runPlaylistQueue = async (
+    tracks: { youtube_id: string; title: string; artist: string; duration: number; thumbnail_url: string }[],
+    playlistTitle: string | null
+  ) => {
+    const doneIds: string[] = [];
+    for (const t of tracks) {
+      const already = await getTrack(t.youtube_id);
+      if (already) {
+        updateTask(t.youtube_id, { status: 'completed', progress: 100 });
+        doneIds.push(t.youtube_id);
+        continue;
+      }
+      const ok = await runDownload(t.youtube_id, t.youtube_id, t);
+      if (ok) doneIds.push(t.youtube_id);
+    }
+    if (playlistTitle && doneIds.length > 0) {
+      try {
+        const playlist = await createPlaylist(playlistTitle);
+        await addTracksToPlaylist(playlist.id, doneIds);
+      } catch (e) {
+        // ignore playlist creation failures
+      }
+    }
+  };
+
+  const enqueuePlaylist = async (url: string, playlistId: string): Promise<DirectAddResult> => {
+    if (playlistInFlightRef.current.has(playlistId)) {
+      throw new Error('이미 다운로드 중인 재생목록입니다.');
+    }
+    playlistInFlightRef.current.add(playlistId);
+    try {
+      const info = await getPlaylistInfo(url, PLAYLIST_LIMIT);
+      const tracks = (info.tracks || []).filter((t: any) => t && t.youtube_id);
+      if (tracks.length === 0) {
+        throw new Error('재생목록에서 곡을 찾지 못했습니다.');
+      }
+
+      setDownloadTasks((prev) => {
+        const existing = new Set(prev.map((t) => t.id));
+        const fresh = tracks
+          .filter((t: any) => !existing.has(t.youtube_id))
+          .map((t: any) => ({
+            id: t.youtube_id,
+            title: t.title,
+            artist: t.artist,
+            status: 'downloading' as const,
+            progress: 0,
+          }));
+        return [...fresh, ...prev];
+      });
+
+      // Downloads continue in the background and are tracked in the download panel.
+      void runPlaylistQueue(tracks, info.title).finally(() => {
+        playlistInFlightRef.current.delete(playlistId);
+      });
+
+      return { type: 'playlist', total: tracks.length, title: info.title };
+    } catch (e) {
+      playlistInFlightRef.current.delete(playlistId);
+      throw e;
+    }
+  };
+
+  const handleDirectAdd = async (urlOrId: string): Promise<DirectAddResult> => {
+    const playlistId = extractPlaylistId(urlOrId);
+    if (playlistId) {
+      return await enqueuePlaylist(urlOrId.trim(), playlistId);
+    }
+
     const youtubeId = extractVideoId(urlOrId);
     if (!youtubeId) {
       throw new Error('Invalid YouTube URL or ID.');
     }
-    if (inFlightRef.current.has(youtubeId)) return;
+    if (inFlightRef.current.has(youtubeId)) return { type: 'video' };
 
     // Try to enrich metadata via search, but fall back to a placeholder.
     let meta: any = { title: `YouTube (${youtubeId})`, artist: 'Unknown Artist' };
@@ -108,6 +194,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ...prev.filter((t) => t.id !== youtubeId),
     ]);
     await runDownload(youtubeId, youtubeId, meta);
+    return { type: 'video' };
   };
 
   const retryDownload = async (taskId: string) => {

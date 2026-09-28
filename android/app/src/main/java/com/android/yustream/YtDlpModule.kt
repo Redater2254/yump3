@@ -125,6 +125,25 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         }.start()
     }
 
+    /** Playlist metadata (flat) -> raw JSON string (includes title + entries). */
+    @ReactMethod
+    fun playlistInfo(url: String, limit: Int, promise: Promise) {
+        Thread {
+            try {
+                ensureInit()
+                val request = YoutubeDLRequest(url)
+                request.addOption("--dump-single-json")
+                request.addOption("--skip-download")
+                request.addOption("--flat-playlist")
+                request.addOption("--playlist-end", limit.toString())
+                val response = YoutubeDL.getInstance().execute(request, null, null)
+                promise.resolve(response.out)
+            } catch (e: Exception) {
+                promise.reject("ERR_PLAYLIST", e.message, e)
+            }
+        }.start()
+    }
+
     /** Current yt-dlp version string, e.g. "2025.09.05". */
     @ReactMethod
     fun getVersion(promise: Promise) {

@@ -129,11 +129,18 @@ export const SearchScreen: React.FC = () => {
   const handleDirectAddPress = async () => {
     if (!directUrl.trim()) return;
     Keyboard.dismiss();
-    
+
     setLoadingDirectAdd(true);
     try {
-      await handleDirectAdd(directUrl.trim());
+      const result = await handleDirectAdd(directUrl.trim());
       setDirectUrl('');
+      if (result?.type === 'playlist') {
+        showToast(
+          `재생목록 다운로드 시작 · ${result.total}곡${result.title ? ` (${result.title})` : ''}`
+        );
+      } else {
+        showToast('다운로드를 시작했습니다.');
+      }
     } catch (err: any) {
       showAlert('Error', err?.message || 'Direct add failed');
     } finally {
@@ -201,10 +208,13 @@ export const SearchScreen: React.FC = () => {
       <View style={styles.content}>
           <View style={styles.directAddContainer}>
             <Text style={styles.sectionTitle}>Quick Download Link</Text>
+            <Text style={styles.sectionHint}>
+              영상 1개 또는 재생목록(최대 100곡) URL을 붙여넣으세요
+            </Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.directInput}
-                placeholder="Paste YouTube Video URL or ID"
+                placeholder="YouTube 영상/재생목록 URL 또는 ID"
                 placeholderTextColor="#666"
                 value={directUrl}
                 onChangeText={setDirectUrl}
@@ -357,6 +367,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
     marginBottom: 12,
+  },
+  sectionHint: {
+    color: '#707888',
+    fontSize: 11,
+    marginTop: -6,
+    marginBottom: 10,
   },
   inputWrapper: {
     flexDirection: 'row',

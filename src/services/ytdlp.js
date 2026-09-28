@@ -63,6 +63,20 @@ export async function searchTracks(query, limit = 10) {
   return entries.map(mapEntry);
 }
 
+/** Playlist metadata via yt-dlp. Returns { title, tracks }. */
+export async function getPlaylistInfo(url, limit = 100) {
+  if (!YtDlp) throw new Error('downloader unavailable');
+  const inited = await initYtDlp();
+  if (!inited) throw new Error('downloader init failed');
+  const out = await YtDlp.playlistInfo(url, limit);
+  const data = JSON.parse(out);
+  const entries = (data.entries || []).filter(Boolean);
+  return {
+    title: data.title || data.playlist_title || null,
+    tracks: entries.map(mapEntry),
+  };
+}
+
 async function ensureLibraryDir() {
   try {
     const info = await FileSystem.getInfoAsync(LIBRARY_DIR);
