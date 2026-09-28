@@ -78,6 +78,7 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 request.addOption("--audio-quality", audioQuality.ifBlank { "0" })
                 request.addOption("--embed-thumbnail")
                 request.addOption("--convert-thumbnails", "jpg")
+                request.addOption("--write-thumbnail")
                 request.addOption("--add-metadata")
                 request.addOption("--embed-metadata")
                 request.addOption("--windows-filenames")

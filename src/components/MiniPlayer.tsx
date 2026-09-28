@@ -87,7 +87,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ onPress }) => {
         {/* Artwork */}
         <TrackArtwork
           youtubeId={currentTrack.youtube_id}
-          uri={currentTrack.thumbnail_url || currentTrack.artwork}
+          uri={currentTrack.thumbnail_path || currentTrack.thumbnail_url || currentTrack.artwork}
           style={styles.artwork}
           placeholderIconSize={20}
         />

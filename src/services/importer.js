@@ -74,6 +74,15 @@ export async function importLibraryFromFolder() {
     });
   }
 
+  const fileSet = new Set(files);
+  const findLocalThumb = (mp3File) => {
+    const base = mp3File.replace(/\.mp3$/i, '');
+    for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
+      if (fileSet.has(base + ext)) return `${LIBRARY_DIR}${base}${ext}`;
+    }
+    return null;
+  };
+
   let added = 0;
   const likedIds = [];
   for (const e of entries) {
@@ -86,6 +95,7 @@ export async function importLibraryFromFolder() {
         artist: e.artist,
         duration: e.duration,
         thumbnail_url: e.thumbnail_url,
+        thumbnail_path: e.thumbnail_path || findLocalThumb(e.file_path.split('/').pop() || ''),
         file_path: e.file_path,
       });
       known.add(key);

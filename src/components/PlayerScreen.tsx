@@ -345,7 +345,7 @@ export const PlayerScreen: React.FC = () => {
               <View style={[styles.artContainer, { width: artSize, height: artSize }]}>
                 <TrackArtwork
                   youtubeId={currentTrack.youtube_id}
-                  uri={currentTrack.thumbnail_url || currentTrack.artwork}
+                  uri={currentTrack.thumbnail_path || currentTrack.thumbnail_url || currentTrack.artwork}
                   style={styles.albumArt}
                   placeholderIconSize={64}
                 />

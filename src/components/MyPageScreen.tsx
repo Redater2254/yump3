@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -19,8 +19,11 @@ import {
   getInstalledVersion,
   loadInstalledVersion,
   checkForUpdate,
-  downloadUpdate,
-  installUpdate,
+  startUpdateDownload,
+  getUpdateDownloadState,
+  clearUpdateDownload,
+  installDownloadedUpdate,
+  UpdateDownloadState,
 } from '../services/updater';
 import {
   startSleepTimer,
@@ -52,16 +55,35 @@ export const MyPageScreen: React.FC = () => {
   const [updating, setUpdating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
-  const [downloadingUpdate, setDownloadingUpdate] = useState(false);
-  const [updateProgress, setUpdateProgress] = useState(0);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const [updateState, setUpdateState] = useState<UpdateDownloadState | null>(null);
   const [appVersion, setAppVersion] = useState(getInstalledVersion());
+  const notifiedCompleteRef = useRef(false);
+
+  const updateActive =
+    !!updateState && ['pending', 'running', 'paused'].includes(updateState.status);
+
+  const refreshUpdateState = async () => {
+    const state = await getUpdateDownloadState();
+    setUpdateState(state);
+    return state;
+  };
 
   const startUpdate = async (info: any) => {
-    setDownloadingUpdate(true);
-    setUpdateProgress(0);
     try {
-      const uri = await downloadUpdate(info.apkUrl, setUpdateProgress);
-      const launched = await installUpdate(uri);
+      await startUpdateDownload(info);
+      showToast('백그라운드에서 다운로드합니다. 알림에서 진행률을 확인하세요.', 'info');
+      await refreshUpdateState();
+    } catch (e: any) {
+      showAlert('업데이트 실패', String(e?.message || e));
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (!updateState) return;
+    setInstallingUpdate(true);
+    try {
+      const launched = await installDownloadedUpdate(updateState.id);
       if (!launched) {
         showAlert(
           '설치 권한 필요',
@@ -69,10 +91,24 @@ export const MyPageScreen: React.FC = () => {
         );
       }
     } catch (e: any) {
-      showAlert('업데이트 실패', String(e?.message || e));
+      showAlert('설치 실패', String(e?.message || e));
     } finally {
-      setDownloadingUpdate(false);
+      setInstallingUpdate(false);
     }
+  };
+
+  const handleCancelUpdate = () => {
+    showAlert('다운로드 취소', '진행 중인 업데이트 다운로드를 취소할까요?', [
+      { text: '계속', style: 'cancel' },
+      {
+        text: '취소',
+        style: 'destructive',
+        onPress: async () => {
+          await clearUpdateDownload(true);
+          setUpdateState(null);
+        },
+      },
+    ]);
   };
 
   const handleCheckUpdate = async () => {
@@ -90,7 +126,7 @@ export const MyPageScreen: React.FC = () => {
       const sizeMb = info.size ? ` (${(info.size / 1048576).toFixed(0)}MB)` : '';
       showAlert(
         `새 버전 v${info.latest}`,
-        `현재 v${info.installed} → v${info.latest}${sizeMb}\n\n지금 업데이트할까요?`,
+        `현재 v${info.installed} → v${info.latest}${sizeMb}\n\n백그라운드로 다운로드할까요?`,
         [
           { text: '나중에', style: 'cancel' },
           { text: '업데이트', onPress: () => startUpdate(info) },
@@ -156,6 +192,7 @@ export const MyPageScreen: React.FC = () => {
     loadStats();
     loadSettings();
     loadInstalledVersion().then(setAppVersion);
+    refreshUpdateState();
     const interval = setInterval(() => {
       const remaining = getSleepTimerRemaining();
       setSleepRemaining(remaining);
@@ -163,6 +200,23 @@ export const MyPageScreen: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!updateActive) return;
+    const timer = setInterval(refreshUpdateState, 1500);
+    return () => clearInterval(timer);
+  }, [updateActive]);
+
+  useEffect(() => {
+    if (updateState?.status === 'successful') {
+      if (!notifiedCompleteRef.current) {
+        notifiedCompleteRef.current = true;
+        showToast('업데이트 다운로드 완료! "설치"를 눌러주세요.');
+      }
+    } else {
+      notifiedCompleteRef.current = false;
+    }
+  }, [updateState?.status]);
 
   const toggleSetting = async (key: 'transition' | 'timer' | 'haptics') => {
     if (key === 'haptics') {
@@ -358,28 +412,60 @@ export const MyPageScreen: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>앱 업데이트</Text>
           <Text style={styles.cardSub}>현재 버전 v{appVersion}</Text>
-          {downloadingUpdate && (
+
+          {updateActive && updateState && (
             <View style={{ marginTop: 12 }}>
               <View style={styles.updateTrack}>
-                <View style={[styles.updateFill, { width: `${Math.round(updateProgress * 100)}%` }]} />
+                <View
+                  style={[styles.updateFill, { width: `${Math.round(updateState.progress * 100)}%` }]}
+                />
               </View>
               <Text style={styles.updatePercent}>
-                {Math.round(updateProgress * 100)}% 다운로드 중...
+                {Math.round(updateState.progress * 100)}% · 백그라운드 다운로드 중 (알림에서 확인)
               </Text>
+              <PressableScale
+                style={[styles.actionBtn, { borderColor: '#2d3342', marginTop: 10 }]}
+                onPress={handleCancelUpdate}
+                activeScale={0.96}
+              >
+                <Text style={[styles.actionBtnText, { color: '#9098a8' }]}>다운로드 취소</Text>
+              </PressableScale>
             </View>
           )}
-          <PressableScale
-            style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
-            onPress={handleCheckUpdate}
-            disabled={checkingUpdate || downloadingUpdate}
-            activeScale={0.96}
-          >
-            {checkingUpdate || downloadingUpdate ? (
-              <ActivityIndicator color="#00e676" size="small" />
-            ) : (
-              <Text style={[styles.actionBtnText, { color: '#00e676' }]}>업데이트 확인</Text>
-            )}
-          </PressableScale>
+
+          {updateState?.status === 'failed' && (
+            <Text style={[styles.cardSub, { color: '#ff8a80', marginTop: 10 }]}>
+              다운로드에 실패했습니다. 다시 시도해주세요.
+            </Text>
+          )}
+
+          {updateState?.status === 'successful' ? (
+            <PressableScale
+              style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+              onPress={handleInstallUpdate}
+              disabled={installingUpdate}
+              activeScale={0.96}
+            >
+              {installingUpdate ? (
+                <ActivityIndicator color="#00e676" size="small" />
+              ) : (
+                <Text style={[styles.actionBtnText, { color: '#00e676' }]}>설치하기</Text>
+              )}
+            </PressableScale>
+          ) : !updateActive ? (
+            <PressableScale
+              style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+              onPress={handleCheckUpdate}
+              disabled={checkingUpdate}
+              activeScale={0.96}
+            >
+              {checkingUpdate ? (
+                <ActivityIndicator color="#00e676" size="small" />
+              ) : (
+                <Text style={[styles.actionBtnText, { color: '#00e676' }]}>업데이트 확인</Text>
+              )}
+            </PressableScale>
+          ) : null}
         </View>
 
         {/* Beta lab */}

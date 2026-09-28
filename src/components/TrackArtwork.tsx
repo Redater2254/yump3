@@ -24,6 +24,11 @@ export const TrackArtwork: React.FC<Props> = ({
     const push = (u?: string | null) => {
       if (u && !list.includes(u)) list.push(u);
     };
+    // A locally saved cover is instant and works offline.
+    if (uri && (uri.startsWith('file://') || uri.startsWith('/'))) {
+      push(uri);
+      return list;
+    }
     if (uri && /(maxresdefault|sddefault)/.test(uri)) push(uri);
     if (youtubeId) {
       push(`https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`);

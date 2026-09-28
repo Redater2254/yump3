@@ -1,11 +1,12 @@
 import Constants from 'expo-constants';
-import * as FileSystem from 'expo-file-system/legacy';
-import { NativeModules } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
-const { ApkInstaller } = NativeModules;
+const { ApkUpdater, ApkInstaller } = NativeModules;
 
 const RELEASES_API = 'https://api.github.com/repos/Redater2254/yump3/releases/latest';
 const APK_NAME = 'yump3.apk';
+const DOWNLOAD_ID_KEY = 'yump3_update_download_id';
 
 export interface UpdateInfo {
   hasUpdate: boolean;
@@ -15,6 +16,23 @@ export interface UpdateInfo {
   size?: number;
   apkUrl?: string;
   error?: string;
+}
+
+export type UpdateDownloadStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'successful'
+  | 'failed'
+  | 'unknown';
+
+export interface UpdateDownloadState {
+  id: number;
+  status: UpdateDownloadStatus;
+  progress: number; // 0..1
+  downloaded: number;
+  total: number;
+  localUri?: string | null;
 }
 
 export function getInstalledVersion(): string {
@@ -84,37 +102,101 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
   }
 }
 
-/** Downloads the release APK into the cache directory and returns its file URI. */
-export async function downloadUpdate(apkUrl: string, onProgress?: (p: number) => void): Promise<string> {
-  const target = `${FileSystem.cacheDirectory}yump3-update.apk`;
+function mapStatus(code: number): UpdateDownloadStatus {
+  switch (code) {
+    case 1:
+      return 'pending';
+    case 2:
+      return 'running';
+    case 4:
+      return 'paused';
+    case 8:
+      return 'successful';
+    case 16:
+      return 'failed';
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Starts a system (DownloadManager) download so it keeps running in the
+ * background with a progress notification, even after leaving the app.
+ */
+export async function startUpdateDownload(info: UpdateInfo): Promise<number> {
+  if (!ApkUpdater || !info.apkUrl) {
+    throw new Error('이 빌드에서는 백그라운드 업데이트를 지원하지 않습니다.');
+  }
+  if (Platform.OS === 'android' && Number(Platform.Version) >= 33) {
+    try {
+      await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS' as any);
+    } catch (e) {
+      // notification permission is optional; the download still works
+    }
+  }
+  const id = await ApkUpdater.startDownload(
+    info.apkUrl,
+    'yump3-update.apk',
+    'yump3 업데이트',
+    `v${info.latest} 다운로드 중...`
+  );
+  await AsyncStorage.setItem(DOWNLOAD_ID_KEY, String(id));
+  return Number(id);
+}
+
+/** Current state of the background update download (null when none). */
+export async function getUpdateDownloadState(): Promise<UpdateDownloadState | null> {
+  if (!ApkUpdater) return null;
+  let id: number;
   try {
-    await FileSystem.deleteAsync(target, { idempotent: true });
+    id = Number(await AsyncStorage.getItem(DOWNLOAD_ID_KEY));
+  } catch (e) {
+    return null;
+  }
+  if (!Number.isFinite(id) || id <= 0) return null;
+  try {
+    const res = await ApkUpdater.query(id);
+    const total = Number(res?.total || 0);
+    const downloaded = Number(res?.downloaded || 0);
+    return {
+      id,
+      status: mapStatus(Number(res?.status ?? -1)),
+      progress: total > 0 ? Math.max(0, Math.min(1, downloaded / total)) : 0,
+      downloaded,
+      total,
+      localUri: res?.localUri ?? null,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function clearUpdateDownload(removeFile = false) {
+  try {
+    const id = Number(await AsyncStorage.getItem(DOWNLOAD_ID_KEY));
+    if (removeFile && ApkUpdater && Number.isFinite(id) && id > 0) {
+      try {
+        await ApkUpdater.remove(id);
+      } catch (e) {
+        // ignore
+      }
+    }
   } catch (e) {
     // ignore
   }
-  const resumable = FileSystem.createDownloadResumable(
-    apkUrl,
-    target,
-    { headers: { 'User-Agent': 'yump3-updater' } },
-    (p) => {
-      if (p.totalBytesExpectedToWrite > 0) {
-        onProgress?.(p.totalBytesWritten / p.totalBytesExpectedToWrite);
-      }
-    }
-  );
-  const result = await resumable.downloadAsync();
-  if (!result?.uri) throw new Error('다운로드에 실패했습니다.');
-  return result.uri;
+  await AsyncStorage.removeItem(DOWNLOAD_ID_KEY);
 }
 
-/** Opens the system installer. Returns false when the user must allow installs first. */
-export async function installUpdate(fileUri: string): Promise<boolean> {
-  if (!ApkInstaller) throw new Error('이 빌드에서는 자동 설치를 지원하지 않습니다.');
+/** Opens the system installer for the finished background download. */
+export async function installDownloadedUpdate(id: number): Promise<boolean> {
+  if (!ApkInstaller || !ApkUpdater) {
+    throw new Error('이 빌드에서는 자동 설치를 지원하지 않습니다.');
+  }
   const canInstall = await ApkInstaller.canInstall();
   if (!canInstall) {
     await ApkInstaller.openInstallSettings();
     return false;
   }
-  await ApkInstaller.install(fileUri);
+  await ApkUpdater.install(id);
   return true;
 }

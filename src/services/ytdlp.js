@@ -138,6 +138,10 @@ export async function downloadTrack(youtubeId, onProgress) {
   if (!match) {
     throw new Error('Downloaded file not found.');
   }
+  // Cover art saved next to the mp3 (avoids the network delay in the player).
+  const thumbMatch = files.find(
+    (f) => f.includes(`[${youtubeId}]`) && /\.(jpe?g|png|webp)$/i.test(f)
+  );
 
   // yt-dlp prints the real duration (seconds) via --print "%(duration)s".
   let duration = 0;
@@ -152,7 +156,11 @@ export async function downloadTrack(youtubeId, onProgress) {
     // keep 0
   }
 
-  return { filePath: `${LIBRARY_DIR}${match}`, duration };
+  return {
+    filePath: `${LIBRARY_DIR}${match}`,
+    duration,
+    thumbnailPath: thumbMatch ? `${LIBRARY_DIR}${thumbMatch}` : null,
+  };
 }
 
 export async function cancelDownload(youtubeId) {
@@ -327,9 +335,10 @@ export async function deleteLocalFile(fileUri) {
   }
 }
 
-/** Thumbnail URL for a library track: keeps high-res URLs, upgrades low-res ones. */
+/** Thumbnail URL for a library track: prefers the local cover saved at download time. */
 export function trackThumbUrl(track) {
   if (!track) return undefined;
+  if (track.thumbnail_path) return track.thumbnail_path;
   const url = track.thumbnail_url;
   if (url && /(maxresdefault|sddefault|hqdefault)/.test(url)) return url;
   if (track.youtube_id) return `https://i.ytimg.com/vi/${track.youtube_id}/hqdefault.jpg`;

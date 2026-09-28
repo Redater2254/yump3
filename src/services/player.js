@@ -323,12 +323,14 @@ export function formatTrack(track) {
     title: track.title,
     artist: track.artist,
     artwork:
+      track.thumbnail_path ||
       track.thumbnail_url ||
       (track.youtube_id ? `https://i.ytimg.com/vi/${track.youtube_id}/hqdefault.jpg` : undefined),
     duration: track.duration,
     youtube_id: track.youtube_id || null,
     file_path: track.file_path || null,
-    thumbnail_url: track.thumbnail_url || null
+    thumbnail_url: track.thumbnail_url || null,
+    thumbnail_path: track.thumbnail_path || null
   };
 }
 

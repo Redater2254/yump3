@@ -65,7 +65,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (inFlightRef.current.has(taskId)) return false;
     inFlightRef.current.add(taskId);
     try {
-      const { filePath, duration } = await downloadTrack(youtubeId, (e: any) => {
+      const { filePath, duration, thumbnailPath } = await downloadTrack(youtubeId, (e: any) => {
         updateTask(taskId, { progress: typeof e.progress === 'number' ? e.progress : undefined });
       });
 
@@ -76,6 +76,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         artist: meta.artist || 'Unknown Artist',
         duration: meta.duration || duration || 0,
         thumbnail_url: meta.thumbnail_url || `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
+        thumbnail_path: thumbnailPath || null,
         file_path: filePath,
       });
 

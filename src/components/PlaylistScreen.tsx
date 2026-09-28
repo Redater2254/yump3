@@ -39,6 +39,7 @@ interface Track {
   artist: string;
   duration: number;
   thumbnail_url: string;
+  thumbnail_path?: string;
   file_path: string;
 }
 
@@ -262,6 +263,9 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
           const trackToDelete = downloadedTracks.find((t) => t.id === trackId);
           if (trackToDelete?.file_path) {
             await deleteLocalFile(trackToDelete.file_path);
+          }
+          if (trackToDelete?.thumbnail_path) {
+            await deleteLocalFile(trackToDelete.thumbnail_path);
           }
           await removeTrack(trackId);
           fetchDownloadedTracks();
