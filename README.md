@@ -30,13 +30,3 @@ complete corresponding source must be made available to anyone you distribute it
 
 By using this app for distribution you agree to comply with GPL-3.0.
 
-## Build
-
-```bash
-npm install
-cd android && gradlew assembleRelease
-# -> android/app/build/outputs/apk/release/app-release.apk
-```
-
-Only `arm64-v8a` is built by default (`android/gradle.properties` → `reactNativeArchitectures`).
-Add other ABIs there and in `android/app/build.gradle` if needed.
