@@ -14,6 +14,7 @@ import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
 import { clearLibrary } from '../services/library';
 import { LIBRARY_DIR, updateYtDlp, isYtDlpAvailable, friendlyYtDlpError } from '../services/ytdlp';
+import { importLibraryFromFolder } from '../services/importer';
 import {
   startSleepTimer,
   stopSleepTimer,
@@ -40,6 +41,27 @@ export const MyPageScreen: React.FC = () => {
   const [selectedMinutes, setSelectedMinutes] = useState<number | null>(null);
 
   const [updating, setUpdating] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const handleImport = async () => {
+    setImporting(true);
+    try {
+      const result = await importLibraryFromFolder();
+      await loadStats();
+      if (result.added > 0) {
+        const extra = result.playlists > 0 ? ` · 플레이리스트 ${result.playlists}개` : '';
+        showToast(`${result.added}곡을 라이브러리에 추가했습니다.${extra}`);
+      } else if (result.total > 0) {
+        showToast('이미 모두 라이브러리에 있습니다.');
+      } else {
+        showToast('폴더에서 MP3 파일을 찾지 못했습니다.', 'info');
+      }
+    } catch (e: any) {
+      showAlert('가져오기 실패', String(e?.message || e));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const loadStats = async () => {
     setLoadingStats(true);
@@ -204,6 +226,27 @@ export const MyPageScreen: React.FC = () => {
               </PressableScale>
             </>
           )}
+        </View>
+
+        {/* Import */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>음악 가져오기</Text>
+          <Text style={styles.cardSub}>
+            PC나 파일 관리자로 옮겨 둔 MP3를 라이브러리에 추가합니다.
+            {'\n'}경로: Android/media/com.yump3/yump3/
+          </Text>
+          <PressableScale
+            style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+            onPress={handleImport}
+            disabled={importing}
+            activeScale={0.96}
+          >
+            {importing ? (
+              <ActivityIndicator color="#00e676" size="small" />
+            ) : (
+              <Text style={[styles.actionBtnText, { color: '#00e676' }]}>폴더 스캔해서 가져오기</Text>
+            )}
+          </PressableScale>
         </View>
 
         {/* Downloader */}

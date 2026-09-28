@@ -154,6 +154,21 @@ export async function isLiked(id) {
   return likes.includes(id);
 }
 
+/** Adds multiple liked ids at once (used by the library importer). */
+export async function addLikes(ids) {
+  const likes = await readJSON(LIKES_KEY, []);
+  const set = new Set(likes);
+  let added = 0;
+  for (const id of ids) {
+    if (!set.has(id)) {
+      set.add(id);
+      added++;
+    }
+  }
+  if (added > 0) await writeJSON(LIKES_KEY, Array.from(set));
+  return added;
+}
+
 /** Backfills a missing duration (seconds) once the player knows the real one. */
 export async function updateTrackDuration(id, duration) {
   if (!duration || duration <= 0) return;
