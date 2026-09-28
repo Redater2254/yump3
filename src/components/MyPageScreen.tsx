@@ -17,6 +17,7 @@ import { LIBRARY_DIR, updateYtDlp, isYtDlpAvailable, friendlyYtDlpError } from '
 import { importLibraryFromFolder } from '../services/importer';
 import {
   getInstalledVersion,
+  loadInstalledVersion,
   checkForUpdate,
   downloadUpdate,
   installUpdate,
@@ -53,7 +54,7 @@ export const MyPageScreen: React.FC = () => {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [downloadingUpdate, setDownloadingUpdate] = useState(false);
   const [updateProgress, setUpdateProgress] = useState(0);
-  const appVersion = getInstalledVersion();
+  const [appVersion, setAppVersion] = useState(getInstalledVersion());
 
   const startUpdate = async (info: any) => {
     setDownloadingUpdate(true);
@@ -154,6 +155,7 @@ export const MyPageScreen: React.FC = () => {
   useEffect(() => {
     loadStats();
     loadSettings();
+    loadInstalledVersion().then(setAppVersion);
     const interval = setInterval(() => {
       const remaining = getSleepTimerRemaining();
       setSleepRemaining(remaining);

@@ -22,6 +22,16 @@ class ApkInstallerModule(reactContext: ReactApplicationContext) : ReactContextBa
     private fun cleanPath(path: String): String =
         if (path.startsWith("file://")) path.substring(7) else path
 
+    /** Installed app versionName, e.g. "1.0.4". */
+    @ReactMethod
+    fun getVersionName(promise: Promise) {
+        try {
+            promise.resolve(BuildConfig.VERSION_NAME)
+        } catch (e: Exception) {
+            promise.reject("ERR_VERSION", e.message, e)
+        }
+    }
+
     /** Whether this app is currently allowed to request package installs (Android 8+). */
     @ReactMethod
     fun canInstall(promise: Promise) {

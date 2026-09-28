@@ -18,7 +18,20 @@ export interface UpdateInfo {
 }
 
 export function getInstalledVersion(): string {
-  return Constants.nativeAppVersion || Constants.expoConfig?.version || '0.0.0';
+  return Constants.expoConfig?.version || '0.0.0';
+}
+
+/** Reads the real versionName from the native build (falls back to the config). */
+export async function loadInstalledVersion(): Promise<string> {
+  try {
+    if (ApkInstaller?.getVersionName) {
+      const v = await ApkInstaller.getVersionName();
+      if (v) return String(v);
+    }
+  } catch (e) {
+    // ignore
+  }
+  return getInstalledVersion();
 }
 
 function parseVersion(v?: string | null): number[] | null {
@@ -39,7 +52,7 @@ function isNewer(installed: string, latest: string): boolean {
 
 /** Asks GitHub for the latest release and compares it with the installed version. */
 export async function checkForUpdate(): Promise<UpdateInfo> {
-  const installed = getInstalledVersion();
+  const installed = await loadInstalledVersion();
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
