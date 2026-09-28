@@ -319,9 +319,12 @@ export const PlayerScreen: React.FC = () => {
   const isPlaying = playbackState.state === State.Playing;
   const isBuffering = playbackState.state === State.Buffering || playbackState.state === State.Loading;
 
-  const progressPercent = isDraggingProgress 
-    ? dragProgressPercent * 100 
-    : (progress.duration > 0 ? (progress.position / progress.duration) * 100 : 0);
+  const progressPercent = isDraggingProgress
+    ? dragProgressPercent * 100
+    : progress.duration > 0
+      ? (progress.position / progress.duration) * 100
+      : 0;
+  const safePercent = Number.isFinite(progressPercent) ? Math.max(0, Math.min(100, progressPercent)) : 0;
 
   const displayPosition = isDraggingProgress
     ? dragProgressPercent * progress.duration
@@ -385,8 +388,8 @@ export const PlayerScreen: React.FC = () => {
               {...progressPanResponder.panHandlers}
             >
               <View style={styles.progressBarBackground} pointerEvents="none">
-                <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-                <View style={[styles.progressKnob, { left: `${progressPercent}%` }]} />
+                <View style={[styles.progressBarFill, { width: `${safePercent}%` }]} />
+                <View style={[styles.progressKnob, { left: `${safePercent}%` }]} />
               </View>
             </View>
             <View style={styles.timeRow}>
@@ -584,6 +587,7 @@ const styles = StyleSheet.create({
   },
   progressBarWrapper: {
     paddingVertical: 10,
+    paddingHorizontal: 7,
   },
   progressBarBackground: {
     height: 4,
@@ -597,6 +601,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#00e676',
     borderRadius: 2,
     width: '0%',
+    zIndex: 1,
   },
   progressKnob: {
     position: 'absolute',
@@ -606,6 +611,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#00e676',
     top: -4,
     marginLeft: -6,
+    zIndex: 2,
+    elevation: 2,
   },
   timeRow: {
     flexDirection: 'row',
@@ -678,6 +685,7 @@ const styles = StyleSheet.create({
   volumeBarWrapper: {
     flex: 1,
     paddingVertical: 10,
+    paddingHorizontal: 7,
     marginHorizontal: 12,
   },
   volumeBarBackground: {
@@ -691,6 +699,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#00e676',
     borderRadius: 2,
+    zIndex: 1,
   },
   volumeKnob: {
     position: 'absolute',
@@ -700,6 +709,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#00e676',
     top: -3,
     marginLeft: -5,
+    zIndex: 2,
+    elevation: 2,
   },
   hintRow: {
     flexDirection: 'row',

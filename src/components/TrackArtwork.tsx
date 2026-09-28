@@ -53,6 +53,7 @@ export const TrackArtwork: React.FC<Props> = ({
     <Image
       source={{ uri: src }}
       style={style}
+      resizeMode="cover"
       onError={() => setIndex((i) => (i + 1 < candidates.length ? i + 1 : i))}
     />
   );
