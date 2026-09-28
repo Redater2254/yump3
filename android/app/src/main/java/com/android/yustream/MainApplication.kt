@@ -24,6 +24,7 @@ class MainApplication : Application(), ReactApplication {
           add(YtDlpPackage())
           add(ApkInstallerPackage())
           add(ApkUpdaterPackage())
+          add(DownloadNotifierPackage())
         }
     )
   }

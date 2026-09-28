@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import { downloadTrack, searchTracks, getPlaylistInfo, friendlyYtDlpError } from '../services/ytdlp';
 import { addTrack, getTrack, createPlaylist, addTracksToPlaylist } from '../services/library';
+
+const { DownloadNotifier } = NativeModules;
 
 export interface DownloadTask {
   id: string; // youtube_id
@@ -52,6 +55,57 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([]);
   const inFlightRef = useRef<Set<string>>(new Set());
   const playlistInFlightRef = useRef<Set<string>>(new Set());
+  const notifierActiveRef = useRef(false);
+  const lastNotifyAtRef = useRef(0);
+
+  const ensureNotificationPermission = async () => {
+    if (Platform.OS !== 'android' || Number(Platform.Version) < 33) return;
+    try {
+      await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS' as any);
+    } catch (e) {
+      // the download still works without the notification
+    }
+  };
+
+  /** Mirrors download progress into the Android notification shade. */
+  const syncDownloadNotification = async (tasks: DownloadTask[]) => {
+    if (!DownloadNotifier) return;
+    const active = tasks.filter((t) => t.status === 'downloading');
+    if (active.length === 0) {
+      if (notifierActiveRef.current) {
+        notifierActiveRef.current = false;
+        try {
+          await DownloadNotifier.stop();
+        } catch (e) {
+          // ignore
+        }
+      }
+      return;
+    }
+    const now = Date.now();
+    if (notifierActiveRef.current && now - lastNotifyAtRef.current < 800) return;
+    lastNotifyAtRef.current = now;
+
+    const total = tasks.length;
+    const done = tasks.filter((t) => t.status !== 'downloading').length;
+    const current = active[0];
+    const progress = typeof current.progress === 'number' ? Math.round(current.progress) : -1;
+    const sub = `${Math.min(done + 1, total)}/${total} · ${current.title}`;
+    try {
+      if (!notifierActiveRef.current) {
+        notifierActiveRef.current = true;
+        await DownloadNotifier.start('yump3 다운로드', sub, progress);
+      } else {
+        await DownloadNotifier.update('yump3 다운로드', sub, progress);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    syncDownloadNotification(downloadTasks);
+  }, [downloadTasks]);
 
   const updateTask = (taskId: string, patch: Partial<DownloadTask>) => {
     setDownloadTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
@@ -98,6 +152,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const triggerDownload = async (track: { youtube_id: string; title: string; artist: string; duration?: number; thumbnail_url?: string }) => {
     const youtubeId = track.youtube_id;
     if (inFlightRef.current.has(youtubeId)) return;
+    await ensureNotificationPermission();
 
     setDownloadTasks((prev) => [
       { id: youtubeId, title: track.title || 'Downloading…', artist: track.artist || 'YouTube', status: 'downloading', progress: 0 },
@@ -111,7 +166,11 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     playlistTitle: string | null
   ) => {
     const doneIds: string[] = [];
+    let first = true;
     for (const t of tracks) {
+      // Space out requests so DNS/rate limits don't fail mid-playlist.
+      if (!first) await new Promise((r) => setTimeout(r, 1200));
+      first = false;
       const already = await getTrack(t.youtube_id);
       if (already) {
         updateTask(t.youtube_id, { status: 'completed', progress: 100 });
@@ -135,6 +194,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (playlistInFlightRef.current.has(playlistId)) {
       throw new Error('이미 다운로드 중인 재생목록입니다.');
     }
+    await ensureNotificationPermission();
     playlistInFlightRef.current.add(playlistId);
     try {
       const info = await getPlaylistInfo(url, PLAYLIST_LIMIT);
