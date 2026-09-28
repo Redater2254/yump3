@@ -4,9 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>yump3 — 온디바이스 YouTube 음악 다운로더</title>
-<meta name="description" content="YouTube 음악을 기기에서 바로 검색·다운로드하고 재생하세요. 서버도, 계정도 필요 없습니다. Android용 yump3 APK 다운로드." />
+<meta name="description" content="YouTube 음악을 기기에서 바로 검색·다운로드하고 재생하세요. 재생목록 다운로드, 백그라운드 다운로드, 앱 내 업데이트. 서버도 계정도 필요 없습니다." />
 <meta property="og:title" content="yump3 — 온디바이스 YouTube 음악 다운로더" />
-<meta property="og:description" content="YouTube 음악을 기기에서 바로 검색·다운로드하고 재생. 서버도, 계정도 필요 없습니다." />
+<meta property="og:description" content="YouTube 음악을 기기에서 바로 검색·다운로드하고 재생. 재생목록/백그라운드 다운로드, 앱 내 업데이트." />
 <meta property="og:type" content="website" />
 <meta property="og:image" content="./icon.png" />
 <link rel="icon" href="./icon.png" />
@@ -34,7 +34,7 @@
     <img class="hero-icon" src="./icon.png" alt="yump3 app icon" />
     <h1>yum<span>p3</span></h1>
     <p class="tagline">YouTube 음악을 <b>기기에서 바로</b> 검색하고, MP3로 저장하고, 재생하세요.</p>
-    <p class="sub">서버도 계정도 필요 없습니다. 모든 것이 스마트폰 안에서 처리됩니다.</p>
+    <p class="sub">재생목록 통째로 다운로드, 백그라운드 다운로드, 앱 안에서 업데이트까지. 서버도 계정도 필요 없습니다.</p>
 
     <div class="cta">
       <a class="btn primary" href="https://github.com/Redater2254/yump3/releases/latest/download/yump3.apk">
@@ -47,7 +47,10 @@
       </a>
     </div>
 
-    <p class="meta">v1.0.0 · 83 MB · Android 7.0+ · arm64 기기 · 광고 없음</p>
+    <p class="meta">
+      <span id="app-version">최신 버전</span> · <span id="app-size">APK</span> · Android 7.0+ · arm64 기기 · 광고 없음
+    </p>
+    <p class="meta small" id="app-updated"></p>
   </section>
 
   <section id="features" class="section">
@@ -56,12 +59,12 @@
       <article class="card">
         <div class="ico"><svg viewBox="0 0 24 24"><path d="M10 18a4 4 0 1 1-2-3.46V5.5a1 1 0 0 1 .76-.97l7-1.75A1 1 0 0 1 17 3.75v10.8a4 4 0 1 1-2-3.47V6.3l-5 1.25V18Z"/></svg></div>
         <h3>온디바이스 검색·다운로드</h3>
-        <p>yt-dlp + ffmpeg가 앱에 내장되어 있어 서버 없이 YouTube를 검색하고 MP3로 저장합니다. 커버 이미지와 태그까지 삽입됩니다.</p>
+        <p>yt-dlp + ffmpeg가 앱에 내장되어 서버 없이 YouTube를 검색하고 MP3로 저장합니다. 커버 이미지와 태그까지 삽입됩니다.</p>
       </article>
       <article class="card">
-        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 4h2v16H4V4Zm4 3h7l-1.2 2.5L15 12H8V7Zm0 7h6l3 6h-2.2l-2.1-4.2L8.6 20H6.4l3-6Z"/></svg></div>
-        <h3>로컬 라이브러리</h3>
-        <p>다운로드한 곡을 플레이리스트와 즐겨찾기로 정리하세요. 모든 데이터는 기기에만 저장됩니다.</p>
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 5h12v2H4V5Zm0 6h12v2H4v-2Zm0 6h8v2H4v-2Zm14.5-6.5L14 8v3h-2v2h2v3l4.5-2.5Z"/></svg></div>
+        <h3>재생목록 다운로드</h3>
+        <p>재생목록 URL을 붙여넣으면 최대 100곡까지 순차 다운로드하고, 앱에 같은 이름의 플레이리스트를 자동으로 만듭니다.</p>
       </article>
       <article class="card">
         <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 1 9 9h-2a7 7 0 0 0-7-7V3Zm0 4a5 5 0 0 1 5 5h-2a3 3 0 0 0-3-3V7Zm0 4a1 1 0 0 1 1 1v5l3.5 2-.9 1.7L11 18.5V12a1 1 0 0 1 1-1Z"/></svg></div>
@@ -69,19 +72,29 @@
         <p>알림 컨트롤과 대기열을 지원합니다. 화면을 꺼도 음악이 이어집니다.</p>
       </article>
       <article class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 2v10.6l3.3-3.3 1.4 1.4L11 16.4 5.3 10.7l1.4-1.4L10 12.6V2h2ZM4 18h16v3H4v-3Z"/></svg></div>
+        <h3>백그라운드 다운로드</h3>
+        <p>다운로드 중 알림창에 진행률이 표시되고, 앱을 나가도 계속받습니다. 완료되면 알림으로 알려줍니다.</p>
+      </article>
+      <article class="card">
         <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6a6 6 0 0 1 5.2 9l1.5 1.5A8 8 0 0 0 12 4Zm0 14a6 6 0 0 1-5.2-9L5.3 7.5A8 8 0 0 0 12 20v3l4-4-4-4v3Z"/></svg></div>
-        <h3>자동 업데이트 점검</h3>
-        <p>앱을 열 때 yt-dlp 초기화·무결성 검사·최신 버전 확인을 진행해 다운로드 실패를 줄입니다.</p>
+        <h3>앱 내 업데이트</h3>
+        <p>My Page에서 새 버전을 확인하고 백그라운드로 내려받아 설치합니다. APK를 다시 찾아 헤맬 필요가 없습니다.</p>
+      </article>
+      <article class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L11 17.4 5.3 11.7l1.4-1.4L10 13.6V3h2ZM5 18h14v3H5v-3Z"/></svg></div>
+        <h3>다운로드 음질 선택</h3>
+        <p>자동(최고 VBR), 320, 192, 128 kbps 중에서 고를 수 있습니다. 설정은 다음 다운로드부터 적용됩니다.</p>
+      </article>
+      <article class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H4V5Zm0 13h16v2H4v-2Zm3-9h10l-5 5-5-5Z"/></svg></div>
+        <h3>커버 아트 즉시 표시</h3>
+        <p>다운로드할 때 커버를 jpg로 함께 저장해 플레이어에서 바로(오프라인에서도) 보입니다. 고화질 커버를 우선 사용합니다.</p>
       </article>
       <article class="card">
         <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm-1 14-3-3 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6Z"/></svg></div>
-        <h3>프라이버시</h3>
-        <p>로그인·추적·광고가 없습니다. 다운로드한 파일은 <code>Android/media/com.yump3/yump3/</code>에 저장되어 파일 관리자로 바로 접근할 수 있습니다.</p>
-      </article>
-      <article class="card">
-        <div class="ico"><svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm0 2v14h10V5H7Zm2 2h6v2H9V7Zm0 4h6v2H9v-2Z"/></svg></div>
-        <h3>오픈소스 (GPL-3.0)</h3>
-        <p>전체 소스가 공개되어 있습니다. yt-dlp·ffmpeg·youtubedl-android를 사용하며 라이선스에 따라 GPL-3.0으로 배포됩니다.</p>
+        <h3>프라이버시 · 오픈소스</h3>
+        <p>로그인·추적·광고가 없고 모든 데이터는 기기에만 저장됩니다. GPL-3.0으로 전체 소스가 공개되어 있습니다.</p>
       </article>
     </div>
   </section>
@@ -92,6 +105,7 @@
       <li><span>1</span><div><b>APK 다운로드</b><p>아래 버튼을 눌러 <code>yump3.apk</code>를 받으세요.</p></div></li>
       <li><span>2</span><div><b>설치 허용</b><p>“알 수 없는 앱 설치”를 허용합니다. (Android 8 이상은 브라우저/파일 앱에 대해 1회 허용)</p></div></li>
       <li><span>3</span><div><b>설치 후 실행</b><p>처음 실행 시 다운로더 준비(초기화·무결성 검사)가 자동으로 진행됩니다.</p></div></li>
+      <li><span>4</span><div><b>이후 업데이트는 앱에서</b><p>My Page → <b>앱 업데이트 → 업데이트 확인</b>. 백그라운드로 받고 알림을 탭하면 설치됩니다.</p></div></li>
     </ol>
     <div class="cta center">
       <a class="btn primary" href="https://github.com/Redater2254/yump3/releases/latest/download/yump3.apk">
@@ -99,15 +113,18 @@
         yump3.apk 받기
       </a>
     </div>
-    <p class="meta center">서명: debug keystore · SHA-256 eab25b13… · 재배포/수정은 GPL-3.0 조건에 따릅니다.</p>
+    <p class="meta center">
+      서명: debug keystore · <a href="https://github.com/Redater2254/yump3/releases">릴리스 노트</a> · 재배포/수정은 GPL-3.0 조건에 따릅니다.
+    </p>
   </section>
 
   <section id="faq" class="section">
     <h2>FAQ</h2>
-    <details><summary>Play 스토어에 없나요?</summary><p>현재는 APK 직접 설치만 지원합니다. 서명이 debug 키라 스토어 업로드는 불가하며, 테스트/개인 사용 용도입니다.</p></details>
-    <details><summary>어떤 기기에서 실행되나요?</summary><p>Android 7.0(API 24) 이상, arm64-v8a 기기에서 동작합니다. 대부분의 최근 안드로이드 폰이 해당됩니다.</p></details>
-    <details><summary>다운로드가 실패해요.</summary><p>앱을 열 때 자동으로 yt-dlp를 점검·업데이트합니다. 그래도 실패하면 My Page → “yt-dlp 업데이트”를 눌러주세요. 실패한 항목을 탭하면 상세 오류를 볼 수 있습니다.</p></details>
-    <details><summary>파일은 어디에 저장되나요?</summary><p><code>내장 저장소/Android/media/com.yump3/yump3/</code> 에 <code>제목 [영상ID].mp3</code> 형식으로 저장됩니다.</p></details>
+    <details><summary>업데이트는 어떻게 하나요?</summary><p>My Page → <b>앱 업데이트 → 업데이트 확인</b>을 누르면 새 버전을 확인하고, 백그라운드로 내려받습니다. 알림을 탭하거나 “설치하기” 버튼으로 설치하세요.</p></details>
+    <details><summary>재생목록도 받을 수 있나요?</summary><p>네. Home의 “Quick Download Link”에 재생목록 URL을 붙여넣으면 최대 100곡까지 순차 다운로드하고, 같은 이름의 플레이리스트를 자동 생성합니다. 이미 있는 곡은 건너뜁니다.</p></details>
+    <details><summary>다운로드가 실패해요.</summary><p>앱을 열 때 자동으로 yt-dlp를 점검·업데이트합니다. 실패한 항목을 탭하면 상세 오류를 볼 수 있고, Retry로 다시 시도할 수 있습니다. DNS 오류가 반복되면 폰의 Wi-Fi DNS를 8.8.8.8로 바꿔보세요.</p></details>
+    <details><summary>음질을 바꿀 수 있나요?</summary><p>My Page → 다운로더 → <b>다운로드 음질</b>에서 자동(최고 VBR) / 320 / 192 / 128 kbps를 선택할 수 있습니다.</p></details>
+    <details><summary>파일은 어디에 저장되나요?</summary><p><code>내장 저장소/Android/media/com.yump3/yump3/</code> 에 <code>제목 [영상ID].mp3</code> 와 커버 <code>.jpg</code>가 저장됩니다. 다른 앱에서 옮긴 MP3는 My Page → <b>음악 가져오기</b>로 라이브러리에 추가할 수 있습니다.</p></details>
     <details><summary>라이선스는?</summary><p>GPL-3.0. 번들된 youtubedl-android(GPL-3.0) 때문에 앱 전체가 GPL-3.0으로 배포되며, 전체 소스는 <a href="https://github.com/Redater2254/yump3">GitHub</a>에 공개되어 있습니다.</p></details>
   </section>
 
@@ -127,6 +144,32 @@
     </p>
   </div>
 </footer>
+
+<script>
+  // Keep the version/size on the page in sync with the latest GitHub release.
+  (async function () {
+    try {
+      const res = await fetch('https://api.github.com/repos/Redater2254/yump3/releases/latest', {
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const tag = String(data.tag_name || '').replace(/^v/, '');
+      const asset = (data.assets || []).find((a) => a.name === 'yump3.apk') || (data.assets || [])[0];
+      const versionEl = document.getElementById('app-version');
+      const sizeEl = document.getElementById('app-size');
+      const updatedEl = document.getElementById('app-updated');
+      if (versionEl && tag) versionEl.textContent = 'v' + tag;
+      if (sizeEl && asset && asset.size) sizeEl.textContent = (asset.size / 1048576).toFixed(0) + ' MB';
+      if (updatedEl && data.published_at) {
+        const d = new Date(data.published_at);
+        updatedEl.textContent = '최근 업데이트: ' + d.toLocaleDateString('ko-KR');
+      }
+    } catch (e) {
+      // offline or rate limited: keep the static text
+    }
+  })();
+</script>
 
 </body>
 </html>
