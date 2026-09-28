@@ -1,0 +1,74 @@
+{
+  "name": "yump3",
+  "main": "index.js",
+  "version": "1.0.0",
+  "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~56.0.12",
+    "expo-constants": "~56.0.18",
+    "expo-file-system": "~56.0.8",
+    "expo-font": "~56.0.7",
+    "expo-haptics": "~56.0.3",
+    "expo-router": "~56.2.11",
+    "expo-splash-screen": "~56.0.10",
+    "expo-system-ui": "~56.0.5",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-gesture-handler": "~2.31.1",
+    "react-native-reanimated": "4.3.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-track-player": "^4.1.2",
+    "react-native-web": "~0.21.0",
+    "react-native-worklets": "~0.8.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "patch-package": "^8.0.1",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "desktop": "expo export --platform web && electron desktop.js",
+    "dist-desktop": "expo export --platform web && node ./scripts/build-desktop.js",
+    "lint": "expo lint",
+    "postinstall": "patch-package"
+  },
+  "build": {
+    "appId": "com.yustream.desktop",
+    "productName": "yustream",
+    "extraMetadata": {
+      "main": "desktop.js"
+    },
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "yustream"
+    },
+    "files": [
+      "desktop.js",
+      "dist/**/*",
+      "!node_modules/**/*"
+    ]
+  },
+  "private": true
+}

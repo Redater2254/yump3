@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "yump3",
+    "slug": "yump3",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "yump3",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "newArchEnabled": true,
+      "bundleIdentifier": "com.yump3"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0c0e12",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "WAKE_LOCK",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
+      "package": "com.yump3",
+      "newArchEnabled": true
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0c0e12",
+          "android": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 150
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e7860141-0fa6-4a60-af45-45c57c6f74d9"
+      }
+    }
+  }
+}
