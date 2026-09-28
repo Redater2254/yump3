@@ -70,8 +70,9 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   /** Mirrors download progress into the Android notification shade. */
   const syncDownloadNotification = async (tasks: DownloadTask[]) => {
     if (!DownloadNotifier) return;
-    const active = tasks.filter((t) => t.status === 'downloading');
-    if (active.length === 0) {
+    // Keep the foreground service alive for the whole batch: stopping it between
+    // tracks would make Android refuse to restart it from the background.
+    if (tasks.length === 0) {
       if (notifierActiveRef.current) {
         notifierActiveRef.current = false;
         try {
@@ -86,11 +87,20 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (notifierActiveRef.current && now - lastNotifyAtRef.current < 800) return;
     lastNotifyAtRef.current = now;
 
+    const active = tasks.filter((t) => t.status === 'downloading');
     const total = tasks.length;
     const done = tasks.filter((t) => t.status !== 'downloading').length;
-    const current = active[0];
-    const progress = typeof current.progress === 'number' ? Math.round(current.progress) : -1;
-    const sub = `${Math.min(done + 1, total)}/${total} · ${current.title}`;
+    let sub: string;
+    let progress: number;
+    if (active.length > 0) {
+      const current = active[0];
+      progress = typeof current.progress === 'number' ? Math.round(current.progress) : -1;
+      sub = `${Math.min(done + 1, total)}/${total} · ${current.title}`;
+    } else {
+      const failed = tasks.filter((t) => t.status === 'failed').length;
+      progress = 100;
+      sub = failed > 0 ? `${total}곡 중 ${failed}곡 실패` : `${total}곡 다운로드 완료`;
+    }
     try {
       if (!notifierActiveRef.current) {
         notifierActiveRef.current = true;

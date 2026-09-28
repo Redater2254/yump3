@@ -41,8 +41,8 @@
         <data android:scheme="yump3"/>
       </intent-filter>
     </activity>
-    <service android:name=".DownloadService" android:exported="false" android:foregroundServiceType="dataSync"/>
-    <service android:name=".ApkDownloadService" android:exported="false" android:foregroundServiceType="dataSync"/>
+    <service android:name=".DownloadService" android:exported="false" android:foregroundServiceType="dataSync" android:stopWithTask="false"/>
+    <service android:name=".ApkDownloadService" android:exported="false" android:foregroundServiceType="dataSync" android:stopWithTask="false"/>
     <receiver android:name="com.doublesymmetry.trackplayer.receiver.MediaButtonReceiver" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MEDIA_BUTTON"/>

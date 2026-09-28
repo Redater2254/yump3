@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 
 /**
@@ -16,14 +17,42 @@ import androidx.core.app.NotificationCompat
  */
 class DownloadService : Service() {
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                val power = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "yump3:download")
+                wakeLock?.setReferenceCounted(false)
+            }
+            if (wakeLock?.isHeld != true) {
+                wakeLock?.acquire(2 * 60 * 60 * 1000L)
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "yump3 다운로드"
         val sub = intent?.getStringExtra(EXTRA_SUB) ?: ""
         val progress = intent?.getIntExtra(EXTRA_PROGRESS, -1) ?: -1
+        acquireWakeLock()
         startForeground(NOTIFICATION_ID, buildNotification(this, title, sub, progress))
         return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (e: Exception) {
+            // ignore
+        }
+        wakeLock = null
+        super.onDestroy()
     }
 
     companion object {

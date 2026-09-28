@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Environment
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import java.io.File
@@ -25,7 +26,34 @@ import java.net.URL
  */
 class ApkDownloadService : Service() {
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                val power = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "yump3:update")
+                wakeLock?.setReferenceCounted(false)
+            }
+            if (wakeLock?.isHeld != true) {
+                wakeLock?.acquire(2 * 60 * 60 * 1000L)
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+
+    override fun onDestroy() {
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (e: Exception) {
+            // ignore
+        }
+        wakeLock = null
+        super.onDestroy()
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL) {
@@ -43,6 +71,7 @@ class ApkDownloadService : Service() {
         downloadedBytes = 0L
         totalBytes = 0L
         finishedPath = null
+        acquireWakeLock()
         notify(this, buildNotification(this, "yump3 업데이트", "${version} 다운로드 준비 중...", -1, false))
 
         Thread {
