@@ -68,14 +68,14 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
     /** Download + transcode to mp3 with embedded thumbnail & tags. */
     @ReactMethod
-    fun download(url: String, outputDir: String, processId: String, promise: Promise) {
+    fun download(url: String, outputDir: String, processId: String, audioQuality: String, promise: Promise) {
         Thread {
             try {
                 ensureInit()
                 val request = YoutubeDLRequest(url)
                 request.addOption("-x")
                 request.addOption("--audio-format", "mp3")
-                request.addOption("--audio-quality", "0")
+                request.addOption("--audio-quality", audioQuality.ifBlank { "0" })
                 request.addOption("--embed-thumbnail")
                 request.addOption("--convert-thumbnails", "jpg")
                 request.addOption("--add-metadata")

@@ -21,6 +21,7 @@ import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlayerControls } from '../services/player';
 import { MarqueeText } from './MarqueeText';
+import { TrackArtwork } from './TrackArtwork';
 import { PressableScale } from './ui/PressableScale';
 
 const { width } = Dimensions.get('window');
@@ -84,7 +85,12 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ onPress }) => {
         accessibilityLabel={`Now playing ${currentTrack.title} by ${currentTrack.artist}. Tap to open player.`}
       >
         {/* Artwork */}
-        <Image source={{ uri: currentTrack.artwork }} style={styles.artwork} />
+        <TrackArtwork
+          youtubeId={currentTrack.youtube_id}
+          uri={currentTrack.thumbnail_url || currentTrack.artwork}
+          style={styles.artwork}
+          placeholderIconSize={20}
+        />
 
         {/* Meta Text */}
         <View style={styles.meta}>

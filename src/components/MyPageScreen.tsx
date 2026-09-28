@@ -16,11 +16,18 @@ import { clearLibrary } from '../services/library';
 import { LIBRARY_DIR, updateYtDlp, isYtDlpAvailable, friendlyYtDlpError } from '../services/ytdlp';
 import { importLibraryFromFolder } from '../services/importer';
 import {
+  getInstalledVersion,
+  checkForUpdate,
+  downloadUpdate,
+  installUpdate,
+} from '../services/updater';
+import {
   startSleepTimer,
   stopSleepTimer,
   getSleepTimerRemaining,
 } from '../services/player';
 import { isHapticsEnabled, setHapticsEnabled, hapticLight } from '../services/haptics';
+import { AUDIO_QUALITY_OPTIONS, getAudioQuality, setAudioQuality } from '../services/settings';
 
 const BETA_TRANSITION_KEY = 'yump3_beta_smart_transition';
 const BETA_TIMER_KEY = 'yump3_beta_sleep_timer';
@@ -35,6 +42,7 @@ export const MyPageScreen: React.FC = () => {
   const [betaSmartTransition, setBetaSmartTransition] = useState(false);
   const [betaSleepTimer, setBetaSleepTimer] = useState(false);
   const [hapticsEnabled, setHapticsEnabledState] = useState(true);
+  const [audioQuality, setAudioQualityState] = useState('best');
   const [showBetaModal, setShowBetaModal] = useState(false);
 
   const [sleepRemaining, setSleepRemaining] = useState(0);
@@ -42,6 +50,55 @@ export const MyPageScreen: React.FC = () => {
 
   const [updating, setUpdating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [downloadingUpdate, setDownloadingUpdate] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const appVersion = getInstalledVersion();
+
+  const startUpdate = async (info: any) => {
+    setDownloadingUpdate(true);
+    setUpdateProgress(0);
+    try {
+      const uri = await downloadUpdate(info.apkUrl, setUpdateProgress);
+      const launched = await installUpdate(uri);
+      if (!launched) {
+        showAlert(
+          '설치 권한 필요',
+          '설정에서 "이 출처의 앱 설치 허용"을 켠 뒤 다시 시도해주세요.'
+        );
+      }
+    } catch (e: any) {
+      showAlert('업데이트 실패', String(e?.message || e));
+    } finally {
+      setDownloadingUpdate(false);
+    }
+  };
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const info = await checkForUpdate();
+      if (info.error) {
+        showAlert('업데이트 확인 실패', '네트워크를 확인해주세요.\n\n' + info.error);
+        return;
+      }
+      if (!info.hasUpdate) {
+        showToast(`최신 버전입니다 (v${info.installed})`);
+        return;
+      }
+      const sizeMb = info.size ? ` (${(info.size / 1048576).toFixed(0)}MB)` : '';
+      showAlert(
+        `새 버전 v${info.latest}`,
+        `현재 v${info.installed} → v${info.latest}${sizeMb}\n\n지금 업데이트할까요?`,
+        [
+          { text: '나중에', style: 'cancel' },
+          { text: '업데이트', onPress: () => startUpdate(info) },
+        ]
+      );
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const handleImport = async () => {
     setImporting(true);
@@ -88,6 +145,7 @@ export const MyPageScreen: React.FC = () => {
       setBetaSmartTransition((await AsyncStorage.getItem(BETA_TRANSITION_KEY)) === 'true');
       setBetaSleepTimer((await AsyncStorage.getItem(BETA_TIMER_KEY)) === 'true');
       setHapticsEnabledState(isHapticsEnabled());
+      setAudioQualityState(await getAudioQuality());
     } catch (e) {
       // ignore
     }
@@ -166,6 +224,12 @@ export const MyPageScreen: React.FC = () => {
         },
       ]
     );
+  };
+
+  const handleSetQuality = async (value: string) => {
+    setAudioQualityState(value);
+    await setAudioQuality(value);
+    showToast('다운로드 음질을 저장했습니다.');
   };
 
   const handleUpdateYtDlp = async () => {
@@ -265,6 +329,53 @@ export const MyPageScreen: React.FC = () => {
               <ActivityIndicator color="#00e676" size="small" />
             ) : (
               <Text style={[styles.actionBtnText, { color: '#00e676' }]}>yt-dlp 업데이트</Text>
+            )}
+          </PressableScale>
+
+          <Text style={[styles.cardSub, { marginTop: 16 }]}>다운로드 음질</Text>
+          <View style={styles.qualityRow}>
+            {AUDIO_QUALITY_OPTIONS.map((opt) => {
+              const active = audioQuality === opt.value;
+              return (
+                <PressableScale
+                  key={opt.value}
+                  style={[styles.qualityChip, active && styles.qualityChipActive]}
+                  onPress={() => handleSetQuality(opt.value)}
+                  activeScale={0.95}
+                >
+                  <Text style={[styles.qualityChipText, active && styles.qualityChipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </PressableScale>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* App update */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>앱 업데이트</Text>
+          <Text style={styles.cardSub}>현재 버전 v{appVersion}</Text>
+          {downloadingUpdate && (
+            <View style={{ marginTop: 12 }}>
+              <View style={styles.updateTrack}>
+                <View style={[styles.updateFill, { width: `${Math.round(updateProgress * 100)}%` }]} />
+              </View>
+              <Text style={styles.updatePercent}>
+                {Math.round(updateProgress * 100)}% 다운로드 중...
+              </Text>
+            </View>
+          )}
+          <PressableScale
+            style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+            onPress={handleCheckUpdate}
+            disabled={checkingUpdate || downloadingUpdate}
+            activeScale={0.96}
+          >
+            {checkingUpdate || downloadingUpdate ? (
+              <ActivityIndicator color="#00e676" size="small" />
+            ) : (
+              <Text style={[styles.actionBtnText, { color: '#00e676' }]}>업데이트 확인</Text>
             )}
           </PressableScale>
         </View>
@@ -434,6 +545,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionBtnText: { fontSize: 14, fontWeight: '700' },
+  updateTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#20242e',
+    overflow: 'hidden',
+  },
+  updateFill: { height: '100%', borderRadius: 3, backgroundColor: '#00e676' },
+  updatePercent: { color: '#00e676', fontSize: 11, fontWeight: '700', marginTop: 6 },
+  qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  qualityChip: {
+    backgroundColor: '#20242e',
+    borderWidth: 1,
+    borderColor: '#2d3342',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  qualityChipActive: { backgroundColor: 'rgba(0, 230, 118, 0.12)', borderColor: '#00e676' },
+  qualityChipText: { color: '#9098a8', fontSize: 12, fontWeight: '600' },
+  qualityChipTextActive: { color: '#00e676' },
   betaRow: {
     backgroundColor: '#161920',
     borderRadius: 16,

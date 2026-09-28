@@ -26,6 +26,7 @@ import TrackPlayer, {
 import { runOnJS } from 'react-native-reanimated';
 import { PlayerControls } from '../services/player';
 import { MarqueeText } from './MarqueeText';
+import { TrackArtwork } from './TrackArtwork';
 import { PressableScale } from './ui/PressableScale';
 import { getLikedIds, toggleLike, updateTrackDuration } from '../services/library';
 
@@ -339,9 +340,14 @@ export const PlayerScreen: React.FC = () => {
 
             <GestureDetector gesture={swipeGesture}>
               <View style={[styles.artContainer, { width: artSize, height: artSize }]}>
-                <Image source={{ uri: currentTrack.artwork }} style={styles.albumArt} />
-            </View>
-          </GestureDetector>
+                <TrackArtwork
+                  youtubeId={currentTrack.youtube_id}
+                  uri={currentTrack.thumbnail_url || currentTrack.artwork}
+                  style={styles.albumArt}
+                  placeholderIconSize={64}
+                />
+              </View>
+            </GestureDetector>
 
           <View style={styles.hintRow}>
             <Text style={styles.swipeHint}>좌우로 밀어 곡 전환</Text>

@@ -1,6 +1,7 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
+import { getAudioQuality, toYtDlpQuality } from './settings';
 
 const { YtDlp } = NativeModules;
 
@@ -125,7 +126,8 @@ export async function downloadTrack(youtubeId, onProgress) {
   let result = '';
   try {
     const url = `https://www.youtube.com/watch?v=${youtubeId}`;
-    result = await YtDlp.download(url, LIBRARY_DIR_RAW, youtubeId);
+    const quality = toYtDlpQuality(await getAudioQuality());
+    result = await YtDlp.download(url, LIBRARY_DIR_RAW, youtubeId, quality);
   } finally {
     if (sub) sub.remove();
   }
@@ -325,11 +327,11 @@ export async function deleteLocalFile(fileUri) {
   }
 }
 
-/** Thumbnail URL for a library track, falling back to YouTube's default art. */
+/** Thumbnail URL for a library track: keeps high-res URLs, upgrades low-res ones. */
 export function trackThumbUrl(track) {
   if (!track) return undefined;
-  return (
-    track.thumbnail_url ||
-    (track.youtube_id ? `https://i.ytimg.com/vi/${track.youtube_id}/hqdefault.jpg` : undefined)
-  );
+  const url = track.thumbnail_url;
+  if (url && /(maxresdefault|sddefault|hqdefault)/.test(url)) return url;
+  if (track.youtube_id) return `https://i.ytimg.com/vi/${track.youtube_id}/hqdefault.jpg`;
+  return url || undefined;
 }

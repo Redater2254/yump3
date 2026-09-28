@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDownload } from '../context/DownloadContext';
 import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
-import { searchTracks } from '../services/ytdlp';
+import { searchTracks, trackThumbUrl } from '../services/ytdlp';
 import { getTracks } from '../services/library';
 
 interface SearchResult {
@@ -160,7 +160,7 @@ export const SearchScreen: React.FC = () => {
     const inLibrary = libraryIds.has(String(item.youtube_id));
     return (
       <View style={styles.trackCard}>
-        <Image source={{ uri: item.thumbnail_url }} style={styles.thumbnail} />
+        <Image source={{ uri: trackThumbUrl(item) }} style={styles.thumbnail} />
         <View style={styles.trackInfo}>
           <Text style={styles.trackTitle} numberOfLines={1}>{item.title}</Text>
           <Text style={styles.trackArtist} numberOfLines={1}>{item.artist}</Text>
