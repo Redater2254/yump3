@@ -21,7 +21,7 @@ import {
   checkForUpdate,
   startUpdateDownload,
   getUpdateDownloadState,
-  clearUpdateDownload,
+  cancelUpdateDownload,
   installDownloadedUpdate,
   UpdateDownloadState,
 } from '../services/updater';
@@ -60,8 +60,7 @@ export const MyPageScreen: React.FC = () => {
   const [appVersion, setAppVersion] = useState(getInstalledVersion());
   const notifiedCompleteRef = useRef(false);
 
-  const updateActive =
-    !!updateState && ['pending', 'running', 'paused'].includes(updateState.status);
+  const updateActive = !!updateState?.running;
 
   const refreshUpdateState = async () => {
     const state = await getUpdateDownloadState();
@@ -80,10 +79,9 @@ export const MyPageScreen: React.FC = () => {
   };
 
   const handleInstallUpdate = async () => {
-    if (!updateState) return;
     setInstallingUpdate(true);
     try {
-      const launched = await installDownloadedUpdate(updateState.id);
+      const launched = await installDownloadedUpdate();
       if (!launched) {
         showAlert(
           '설치 권한 필요',
@@ -104,8 +102,8 @@ export const MyPageScreen: React.FC = () => {
         text: '취소',
         style: 'destructive',
         onPress: async () => {
-          await clearUpdateDownload(true);
-          setUpdateState(null);
+          await cancelUpdateDownload();
+          await refreshUpdateState();
         },
       },
     ]);
@@ -208,15 +206,15 @@ export const MyPageScreen: React.FC = () => {
   }, [updateActive]);
 
   useEffect(() => {
-    if (updateState?.status === 'successful') {
+    if (updateState?.ready) {
       if (!notifiedCompleteRef.current) {
         notifiedCompleteRef.current = true;
         showToast('업데이트 다운로드 완료! "설치"를 눌러주세요.');
       }
-    } else {
+    } else if (!updateState?.running) {
       notifiedCompleteRef.current = false;
     }
-  }, [updateState?.status]);
+  }, [updateState?.ready, updateState?.running]);
 
   const toggleSetting = async (key: 'transition' | 'timer' | 'haptics') => {
     if (key === 'haptics') {
@@ -433,13 +431,13 @@ export const MyPageScreen: React.FC = () => {
             </View>
           )}
 
-          {updateState?.status === 'failed' && (
+          {!!updateState?.error && (
             <Text style={[styles.cardSub, { color: '#ff8a80', marginTop: 10 }]}>
               다운로드에 실패했습니다. 다시 시도해주세요.
             </Text>
           )}
 
-          {updateState?.status === 'successful' ? (
+          {updateState?.ready ? (
             <PressableScale
               style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
               onPress={handleInstallUpdate}
