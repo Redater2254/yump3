@@ -1,10 +1,12 @@
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
 const { ApkUpdater, ApkInstaller } = NativeModules;
 
 const RELEASES_API = 'https://api.github.com/repos/Redater2254/yump3/releases/latest';
 const APK_NAME = 'yump3.apk';
+const UPDATE_VERSION_KEY = 'yump3_update_version';
 
 export interface UpdateInfo {
   hasUpdate: boolean;
@@ -110,6 +112,11 @@ export async function startUpdateDownload(info: UpdateInfo): Promise<void> {
     throw new Error('이 빌드에서는 백그라운드 업데이트를 지원하지 않습니다.');
   }
   await ensureNotificationPermission();
+  try {
+    if (info.latest) await AsyncStorage.setItem(UPDATE_VERSION_KEY, info.latest);
+  } catch (e) {
+    // ignore
+  }
   await ApkUpdater.start(info.apkUrl, info.latest || '');
 }
 
@@ -130,6 +137,30 @@ export async function getUpdateDownloadState(): Promise<UpdateDownloadState> {
     const percent = Number(res?.progress ?? -1);
     const running = !!res?.running;
     const error = res?.error ? String(res.error) : null;
+    const path = res?.path ? String(res.path) : null;
+
+    let ready = false;
+    if (!running && !error && path) {
+      // Only treat a leftover file as an update when it is newer than the
+      // installed version; otherwise clean it up (prevents false "완료" notices).
+      const stored = await AsyncStorage.getItem(UPDATE_VERSION_KEY);
+      const installed = await loadInstalledVersion();
+      if (stored && isNewer(installed, stored)) {
+        ready = true;
+      } else {
+        try {
+          await AsyncStorage.removeItem(UPDATE_VERSION_KEY);
+        } catch (e) {
+          // ignore
+        }
+        try {
+          await ApkUpdater.clear();
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
     return {
       running,
       progress:
@@ -141,7 +172,7 @@ export async function getUpdateDownloadState(): Promise<UpdateDownloadState> {
       downloaded,
       total,
       error,
-      ready: !running && !!res?.path && !error,
+      ready,
     };
   } catch (e) {
     return empty;
@@ -151,6 +182,16 @@ export async function getUpdateDownloadState(): Promise<UpdateDownloadState> {
 export async function cancelUpdateDownload(): Promise<void> {
   try {
     await ApkUpdater?.cancel();
+  } catch (e) {
+    // ignore
+  }
+  try {
+    await AsyncStorage.removeItem(UPDATE_VERSION_KEY);
+  } catch (e) {
+    // ignore
+  }
+  try {
+    await ApkUpdater?.clear();
   } catch (e) {
     // ignore
   }

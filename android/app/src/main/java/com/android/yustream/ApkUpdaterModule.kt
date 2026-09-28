@@ -45,6 +45,16 @@ class ApkUpdaterModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun clear(promise: Promise) {
+        try {
+            ApkDownloadService.clear(reactApplicationContext)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("ERR_UPDATE_CLEAR", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun install(promise: Promise) {
         try {
             val intent = ApkDownloadService.installIntent(reactApplicationContext)

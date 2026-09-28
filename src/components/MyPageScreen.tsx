@@ -58,7 +58,6 @@ export const MyPageScreen: React.FC = () => {
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const [updateState, setUpdateState] = useState<UpdateDownloadState | null>(null);
   const [appVersion, setAppVersion] = useState(getInstalledVersion());
-  const notifiedCompleteRef = useRef(false);
 
   const updateActive = !!updateState?.running;
 
@@ -205,16 +204,18 @@ export const MyPageScreen: React.FC = () => {
     return () => clearInterval(timer);
   }, [updateActive]);
 
+  // Toast only when a download we actually watched finishes (not for stale files).
+  const wasRunningRef = useRef(false);
   useEffect(() => {
-    if (updateState?.ready) {
-      if (!notifiedCompleteRef.current) {
-        notifiedCompleteRef.current = true;
-        showToast('업데이트 다운로드 완료! "설치"를 눌러주세요.');
-      }
-    } else if (!updateState?.running) {
-      notifiedCompleteRef.current = false;
+    if (updateState?.running) {
+      wasRunningRef.current = true;
+      return;
     }
-  }, [updateState?.ready, updateState?.running]);
+    if (updateState?.ready && wasRunningRef.current) {
+      wasRunningRef.current = false;
+      showToast('업데이트 다운로드 완료! "설치"를 눌러주세요.');
+    }
+  }, [updateState?.running, updateState?.ready]);
 
   const toggleSetting = async (key: 'transition' | 'timer' | 'haptics') => {
     if (key === 'haptics') {

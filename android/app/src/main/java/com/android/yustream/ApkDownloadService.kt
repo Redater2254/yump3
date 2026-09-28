@@ -177,6 +177,16 @@ class ApkDownloadService : Service() {
             running = false
         }
 
+        /** Clears the downloaded file and the in-memory state. */
+        fun clear(context: Context) {
+            finishedPath = null
+            error = null
+            progress = -1
+            downloadedBytes = 0L
+            totalBytes = 0L
+            File(context.cacheDir, FILE_NAME).delete()
+        }
+
         fun installIntent(context: Context): Intent? {
             val path = finishedPath ?: return null
             val file = File(path)
