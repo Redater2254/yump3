@@ -72,24 +72,30 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
     cancelAnimation(translateX);
     translateX.value = 0;
 
-    if (shouldAnimate) {
-      const distance = textWidth + 40; // distance to offset for seamless loop (text + gap)
-      const duration = (distance / speed) * 1000;
+    if (!shouldAnimate) {
+      return;
+    }
 
+    const distance = textWidth + 40; // distance to offset for seamless loop (text + gap)
+    const duration = (distance / speed) * 1000;
+
+    // Wait before scrolling so short glimpses of a title don't jump around.
+    const timeout = setTimeout(() => {
       translateX.value = withRepeat(
         withTiming(-distance, {
-          duration: duration,
+          duration,
           easing: Easing.linear,
         }),
         -1, // infinite loop
         false // do not reverse, jump back instantly
       );
-    }
+    }, delay);
 
     return () => {
+      clearTimeout(timeout);
       cancelAnimation(translateX);
     };
-  }, [shouldAnimate, textWidth, containerWidth, text]);
+  }, [shouldAnimate, textWidth, containerWidth, text, delay, speed]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {

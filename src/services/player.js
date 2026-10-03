@@ -218,6 +218,73 @@ function startProgressVolumeMonitor() {
   }, 500);
 }
 
+async function resetRate() {
+  isFadingOut = false;
+  if (rateRampInterval) {
+    clearInterval(rateRampInterval);
+    rateRampInterval = null;
+  }
+  await TrackPlayer.setRate(1.0);
+}
+
+/** Beat-matched transition into the new track (smart transition beta). */
+async function applySmartTransition(currentBPM) {
+  triggerFadeIn();
+  if (isFadingOut && lastTrackBPM) {
+    isFadingOut = false;
+    const targetRate = Math.max(0.9, Math.min(1.1, lastTrackBPM / currentBPM));
+    if (Math.abs(targetRate - 1.0) > 0.005) {
+      await TrackPlayer.setRate(targetRate);
+      rampPlaybackRate(targetRate);
+    } else {
+      await TrackPlayer.setRate(1.0);
+    }
+  } else {
+    await resetRate();
+  }
+}
+
+/** Moves the best harmonic match into the next queue slot. */
+async function reorderQueueHarmonically(activeTrack) {
+  const index = await TrackPlayer.getActiveTrackIndex();
+  const queue = await TrackPlayer.getQueue();
+  if (index === null || index === undefined || index + 2 >= queue.length) return;
+
+  const remaining = queue.slice(index + 1);
+  let bestScore = -1;
+  let bestIdx = 0;
+  for (let i = 0; i < remaining.length; i++) {
+    const score = getHarmonicScore(activeTrack, remaining[i]);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx === 0) return;
+
+  await TrackPlayer.remove(index + 1 + bestIdx);
+  await TrackPlayer.add(remaining[bestIdx], index + 1);
+}
+
+async function onActiveTrackChanged(event) {
+  const activeTrack = event.track;
+  if (!activeTrack || !activeTrack.id) return;
+  try {
+    const smartTransition = await AsyncStorage.getItem('yump3_beta_smart_transition');
+    const { bpm: currentBPM } = getTrackBPMAndKey(activeTrack);
+
+    if (smartTransition === 'true' && !bitPerfectMode) {
+      await applySmartTransition(currentBPM);
+      await reorderQueueHarmonically(activeTrack);
+    } else {
+      await resetRate();
+    }
+    lastTrackBPM = currentBPM;
+  } catch (e) {
+    // ignore
+  }
+}
+
 export async function setupPlayer() {
   if (isSetup) return true;
 
@@ -246,71 +313,7 @@ export async function setupPlayer() {
 
     isSetup = true;
 
-    TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event) => {
-      const activeTrack = event.track;
-      if (!activeTrack || !activeTrack.id) return;
-      try {
-        const smartTransition = await AsyncStorage.getItem('yump3_beta_smart_transition');
-        const { bpm: currentBPM } = getTrackBPMAndKey(activeTrack);
-
-        if (smartTransition === 'true') {
-          triggerFadeIn();
-
-          if (isFadingOut && lastTrackBPM) {
-            isFadingOut = false;
-            let targetRate = lastTrackBPM / currentBPM;
-            targetRate = Math.max(0.9, Math.min(1.1, targetRate));
-            if (Math.abs(targetRate - 1.0) > 0.005) {
-              await TrackPlayer.setRate(targetRate);
-              rampPlaybackRate(targetRate);
-            } else {
-              await TrackPlayer.setRate(1.0);
-            }
-          } else {
-            isFadingOut = false;
-            if (rateRampInterval) {
-              clearInterval(rateRampInterval);
-              rateRampInterval = null;
-            }
-            await TrackPlayer.setRate(1.0);
-          }
-
-          // Harmonic re-ordering of the remaining queue
-          const index = await TrackPlayer.getActiveTrackIndex();
-          const queue = await TrackPlayer.getQueue();
-          if (index !== null && index !== undefined && index + 2 < queue.length) {
-            const remaining = queue.slice(index + 1);
-            let bestScore = -1;
-            let bestIdx = 0;
-            for (let i = 0; i < remaining.length; i++) {
-              const score = getHarmonicScore(activeTrack, remaining[i]);
-              if (score > bestScore) {
-                bestScore = score;
-                bestIdx = i;
-              }
-            }
-            if (bestIdx > 0) {
-              const targetTrack = remaining[bestIdx];
-              const targetIndexInFullQueue = index + 1 + bestIdx;
-              await TrackPlayer.remove(targetIndexInFullQueue);
-              await TrackPlayer.add(targetTrack, index + 1);
-            }
-          }
-        } else {
-          isFadingOut = false;
-          if (rateRampInterval) {
-            clearInterval(rateRampInterval);
-            rateRampInterval = null;
-          }
-          await TrackPlayer.setRate(1.0);
-        }
-
-        lastTrackBPM = currentBPM;
-      } catch (e) {
-        // ignore
-      }
-    });
-
+    TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, onActiveTrackChanged);
     try {
       originalUserVolume = await TrackPlayer.getVolume();
     } catch (e) {
@@ -379,6 +382,41 @@ export async function playPlaylist(tracks, startIndex = 0) {
   }
 }
 
+async function shuffleCurrentQueue() {
+  const queue = await TrackPlayer.getQueue();
+  const activeTrack = await TrackPlayer.getActiveTrack();
+  if (queue.length <= 1) return;
+
+  const activeIndex = queue.findIndex((t) => t.id === activeTrack?.id);
+  const otherTracks = queue.filter((_, idx) => idx !== activeIndex);
+  for (let i = otherTracks.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
+  }
+
+  const removeIndices = queue.map((_, i) => i).filter((i) => i !== activeIndex);
+  await TrackPlayer.remove(removeIndices);
+  await TrackPlayer.add(otherTracks);
+}
+
+async function restoreOriginalOrder() {
+  if (originalTracks.length === 0) return;
+
+  const queue = await TrackPlayer.getQueue();
+  const activeTrack = await TrackPlayer.getActiveTrack();
+  const activeIndex = queue.findIndex((t) => t.id === activeTrack?.id);
+  const activeIndexInOriginal = originalTracks.findIndex((t) => t.id === activeTrack?.id);
+  if (activeIndexInOriginal === -1) return;
+
+  const rest = [
+    ...originalTracks.slice(activeIndexInOriginal + 1),
+    ...originalTracks.slice(0, activeIndexInOriginal)
+  ];
+  const removeIndices = queue.map((_, i) => i).filter((i) => i !== activeIndex);
+  await TrackPlayer.remove(removeIndices);
+  await TrackPlayer.add(rest);
+}
+
 export const PlayerControls = {
   async play() {
     await TrackPlayer.play();
@@ -398,12 +436,16 @@ export const PlayerControls = {
   async skipToNext() {
     try {
       await TrackPlayer.skipToNext();
-    } catch (e) {}
+    } catch {
+      // no next track in the queue
+    }
   },
   async skipToPrevious() {
     try {
       await TrackPlayer.skipToPrevious();
-    } catch (e) {}
+    } catch {
+      // no previous track in the queue
+    }
   },
   async seekTo(positionSeconds) {
     await TrackPlayer.seekTo(positionSeconds);
@@ -430,38 +472,10 @@ export const PlayerControls = {
   async toggleShuffle(enabled) {
     isShuffle = enabled;
     try {
-      const queue = await TrackPlayer.getQueue();
-      const activeTrack = await TrackPlayer.getActiveTrack();
-      if (queue.length <= 1) return;
-
-      const activeIndex = queue.findIndex((t) => t.id === activeTrack?.id);
-      const otherTracks = queue.filter((_, idx) => idx !== activeIndex);
-
       if (enabled) {
-        for (let i = otherTracks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
-        }
-        const removeIndices = [];
-        for (let i = 0; i < queue.length; i++) {
-          if (i !== activeIndex) removeIndices.push(i);
-        }
-        await TrackPlayer.remove(removeIndices);
-        await TrackPlayer.add(otherTracks);
-      } else if (originalTracks.length > 0) {
-        const activeIndexInOriginal = originalTracks.findIndex((t) => t.id === activeTrack?.id);
-        if (activeIndexInOriginal !== -1) {
-          const rest = [
-            ...originalTracks.slice(activeIndexInOriginal + 1),
-            ...originalTracks.slice(0, activeIndexInOriginal)
-          ];
-          const removeIndices = [];
-          for (let i = 0; i < queue.length; i++) {
-            if (i !== activeIndex) removeIndices.push(i);
-          }
-          await TrackPlayer.remove(removeIndices);
-          await TrackPlayer.add(rest);
-        }
+        await shuffleCurrentQueue();
+      } else {
+        await restoreOriginalOrder();
       }
     } catch (e) {
       console.error('Failed to toggle shuffle:', e);

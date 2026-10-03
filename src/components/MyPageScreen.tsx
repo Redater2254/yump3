@@ -1,13 +1,6 @@
 import { palette } from '../theme';
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  ActivityIndicator,
-  ScrollView,
-  Modal,
-} from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,7 +27,6 @@ import {
 } from '../services/player';
 import { isHapticsEnabled, setHapticsEnabled, hapticLight } from '../services/haptics';
 import { AUDIO_QUALITY_OPTIONS, getAudioQuality, setAudioQuality } from '../services/settings';
-import { Slider } from './ui/Slider';
 import {
   DEFAULT_AUDIO_SETTINGS,
   loadAudioSettings,
@@ -45,6 +37,8 @@ import {
   AudioEffectsSettings,
 } from '../services/audioEffects';
 import { setBitPerfectMode } from '../services/player';
+import { PlaybackModal } from './mypage/PlaybackModal';
+import { AudioModal } from './mypage/AudioModal';
 
 const BETA_TRANSITION_KEY = 'yump3_beta_smart_transition';
 const BETA_TIMER_KEY = 'yump3_beta_sleep_timer';
@@ -567,276 +561,31 @@ export const MyPageScreen: React.FC = () => {
         <Text style={styles.footerVersion}>yump3 v{appVersion} · GPL-3.0</Text>
       </ScrollView>
 
-      {/* Beta modal */}
-      <Modal
+      <PlaybackModal
         visible={showBetaModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowBetaModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.betaModalCard}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="flask" size={22} color={palette.accent} style={{ marginRight: 8 }} />
-                <Text style={styles.modalTitle}>재생</Text>
-              </View>
-              <PressableScale onPress={() => setShowBetaModal(false)} activeScale={0.8}>
-                <Ionicons name="close" size={24} color={palette.text} />
-              </PressableScale>
-            </View>
+        onClose={() => setShowBetaModal(false)}
+        bitPerfect={audioSettings.bitPerfect}
+        onToggleBitPerfect={() => commitAudio({ bitPerfect: !audioSettings.bitPerfect })}
+        smartTransition={betaSmartTransition}
+        onToggleSmartTransition={() => toggleSetting('transition')}
+        sleepTimerEnabled={betaSleepTimer}
+        onToggleSleepTimer={() => toggleSetting('timer')}
+        hapticsEnabled={hapticsEnabled}
+        onToggleHaptics={() => toggleSetting('haptics')}
+        sleepRemaining={sleepRemaining}
+        selectedMinutes={selectedMinutes}
+        onStartTimer={handleStartTimer}
+        onStopTimer={handleStopTimer}
+      />
 
-            <ScrollView contentContainerStyle={styles.betaModalContent}>
-              <Text style={styles.betaWelcome}>
-                재생 동작과 실험적인 기능을 설정합니다.
-              </Text>
-
-              <View style={styles.betaSettingRow}>
-                <View style={{ flex: 1, paddingRight: 15 }}>
-                  <Text style={styles.betaSettingTitle}>원음 모드 (비트퍼펙트 지향)</Text>
-                  <Text style={styles.betaSettingDesc}>
-                    페이드·속도 램프·DSP를 끄고 원음 그대로 재생합니다.
-                  </Text>
-                </View>
-                <PressableScale
-                  style={[styles.toggleBtn, audioSettings.bitPerfect ? styles.toggleOn : styles.toggleOff]}
-                  onPress={() => commitAudio({ bitPerfect: !audioSettings.bitPerfect })}
-                >
-                  <View style={[styles.toggleDot, audioSettings.bitPerfect ? styles.dotOn : styles.dotOff]} />
-                </PressableScale>
-              </View>
-
-              <View style={styles.betaDivider} />
-
-              <View style={styles.betaSettingRow}>
-                <View style={{ flex: 1, paddingRight: 15 }}>
-                  <Text style={styles.betaSettingTitle}>스마트 트랜지션 (BPM & Key)</Text>
-                  <Text style={styles.betaSettingDesc}>
-                    곡 전환 시 템포와 음계를 매칭하고 대기열을 자동 정렬합니다.
-                  </Text>
-                </View>
-                <PressableScale
-                  style={[styles.toggleBtn, betaSmartTransition ? styles.toggleOn : styles.toggleOff]}
-                  onPress={() => toggleSetting('transition')}
-                >
-                  <View style={[styles.toggleDot, betaSmartTransition ? styles.dotOn : styles.dotOff]} />
-                </PressableScale>
-              </View>
-
-              <View style={styles.betaDivider} />
-
-              <View style={styles.betaSettingRow}>
-                <View style={{ flex: 1, paddingRight: 15 }}>
-                  <Text style={styles.betaSettingTitle}>취침 예약 타이머</Text>
-                  <Text style={styles.betaSettingDesc}>
-                    설정한 시간이 되면 페이드 아웃과 함께 재생을 멈춥니다.
-                  </Text>
-                </View>
-                <PressableScale
-                  style={[styles.toggleBtn, betaSleepTimer ? styles.toggleOn : styles.toggleOff]}
-                  onPress={() => toggleSetting('timer')}
-                >
-                  <View style={[styles.toggleDot, betaSleepTimer ? styles.dotOn : styles.dotOff]} />
-                </PressableScale>
-              </View>
-
-              {betaSleepTimer && (
-                <View style={styles.timerSection}>
-                  <Text style={styles.timerLabel}>
-                    {sleepRemaining > 0
-                      ? `남은 시간: ${Math.floor(sleepRemaining / 60)}분 ${sleepRemaining % 60}초`
-                      : '종료 시간 예약'}
-                  </Text>
-                  <View style={styles.timerChipRow}>
-                    {[10, 20, 30, 60].map((min) => {
-                      const isActive = selectedMinutes === min && sleepRemaining > 0;
-                      return (
-                        <PressableScale
-                          key={min}
-                          style={[styles.timerChip, isActive && styles.timerChipActive]}
-                          onPress={() => handleStartTimer(min)}
-                        >
-                          <Text style={[styles.timerChipText, isActive && styles.timerChipTextActive]}>
-                            {min}분
-                          </Text>
-                        </PressableScale>
-                      );
-                    })}
-                    {sleepRemaining > 0 && (
-                      <PressableScale
-                        style={[styles.timerChip, styles.timerChipCancel]}
-                        onPress={handleStopTimer}
-                      >
-                        <Text style={styles.timerChipTextCancel}>취소</Text>
-                      </PressableScale>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              <View style={styles.betaDivider} />
-
-              <View style={styles.betaSettingRow}>
-                <View style={{ flex: 1, paddingRight: 15 }}>
-                  <Text style={styles.betaSettingTitle}>진동 피드백 (Haptics)</Text>
-                  <Text style={styles.betaSettingDesc}>
-                    버튼을 누를 때 가벼운 진동으로 촉각 피드백을 제공합니다.
-                  </Text>
-                </View>
-                <PressableScale
-                  style={[styles.toggleBtn, hapticsEnabled ? styles.toggleOn : styles.toggleOff]}
-                  onPress={() => toggleSetting('haptics')}
-                >
-                  <View style={[styles.toggleDot, hapticsEnabled ? styles.dotOn : styles.dotOff]} />
-                </PressableScale>
-              </View>
-            </ScrollView>
-
-            <PressableScale style={styles.betaCloseBtn} onPress={() => setShowBetaModal(false)} activeScale={0.97}>
-              <Text style={styles.betaCloseBtnText}>완료</Text>
-            </PressableScale>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Audio modal */}
-      <Modal
+      <AudioModal
         visible={showAudioModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowAudioModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.betaModalCard}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="options" size={22} color={palette.accent} style={{ marginRight: 8 }} />
-                <Text style={styles.modalTitle}>오디오</Text>
-              </View>
-              <PressableScale onPress={() => setShowAudioModal(false)} activeScale={0.8}>
-                <Ionicons name="close" size={24} color={palette.text} />
-              </PressableScale>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.betaModalContent}>
-              {!audioInfo.available && (
-                <Text style={styles.betaWelcome}>
-                  이 기기에서는 이퀄라이저/3D 효과를 지원하지 않습니다. 원음 모드는 사용할 수 있습니다.
-                </Text>
-              )}
-
-              <View style={styles.betaSettingRow}>
-                <View style={{ flex: 1, paddingRight: 15 }}>
-                  <Text style={styles.betaSettingTitle}>이퀄라이저</Text>
-                  <Text style={styles.betaSettingDesc}>
-                    기기 EQ 밴드(프리셋/커스텀)를 조절합니다.
-                  </Text>
-                </View>
-                <PressableScale
-                  style={[styles.toggleBtn, audioSettings.enabled ? styles.toggleOn : styles.toggleOff]}
-                  onPress={() => commitAudio({ enabled: !audioSettings.enabled })}
-                >
-                  <View style={[styles.toggleDot, audioSettings.enabled ? styles.dotOn : styles.dotOff]} />
-                </PressableScale>
-              </View>
-
-              {audioSettings.enabled && audioInfo.available && (
-                <View style={{ marginTop: 6 }}>
-                  {audioInfo.presets && audioInfo.presets.length > 0 && (
-                    <View style={styles.presetRow}>
-                      {audioInfo.presets.map((preset) => {
-                        const active = audioSettings.preset === preset.index;
-                        return (
-                          <PressableScale
-                            key={preset.index}
-                            style={[styles.qualityChip, active && styles.qualityChipActive]}
-                            onPress={() => commitAudio({ preset: preset.index })}
-                            activeScale={0.95}
-                          >
-                            <Text
-                              style={[
-                                styles.qualityChipText,
-                                active && styles.qualityChipTextActive,
-                              ]}
-                            >
-                              {preset.name}
-                            </Text>
-                          </PressableScale>
-                        );
-                      })}
-                    </View>
-                  )}
-
-                  {(audioInfo.bands || []).map((band, index) => {
-                    const level = audioSettings.bandLevels[index] ?? band.level;
-                    const dB = level / 100;
-                    const freq =
-                      band.centerFreq >= 1000
-                        ? `${(band.centerFreq / 1000).toFixed(0)}k`
-                        : `${band.centerFreq}`;
-                    return (
-                      <Slider
-                        key={band.index}
-                        label={`${freq} Hz`}
-                        valueLabel={`${dB > 0 ? '+' : ''}${dB.toFixed(1)} dB`}
-                        min={audioInfo.levelMin ?? -1500}
-                        max={audioInfo.levelMax ?? 1500}
-                        step={100}
-                        value={level}
-                        onChange={(v) => {
-                          const next = [...audioSettings.bandLevels];
-                          next[index] = v;
-                          updateAudioLocal({ preset: null, bandLevels: next });
-                        }}
-                        onComplete={(v) => {
-                          const next = [...audioSettings.bandLevels];
-                          next[index] = v;
-                          commitAudio({ preset: null, bandLevels: next });
-                        }}
-                      />
-                    );
-                  })}
-
-                  <Slider
-                    label="베이스 부스트"
-                    valueLabel={`${Math.round((audioSettings.bass / 1000) * 100)}%`}
-                    min={0}
-                    max={1000}
-                    step={50}
-                    value={audioSettings.bass}
-                    onChange={(v) => updateAudioLocal({ bass: v })}
-                    onComplete={(v) => commitAudio({ bass: v })}
-                  />
-                  <Slider
-                    label="3D 음향 (가상화)"
-                    valueLabel={`${Math.round((audioSettings.virtualizer / 1000) * 100)}%`}
-                    min={0}
-                    max={1000}
-                    step={50}
-                    value={audioSettings.virtualizer}
-                    onChange={(v) => updateAudioLocal({ virtualizer: v })}
-                    onComplete={(v) => commitAudio({ virtualizer: v })}
-                  />
-                  <Slider
-                    label="라우드니스"
-                    valueLabel={`+${(audioSettings.loudness / 100).toFixed(0)} dB`}
-                    min={0}
-                    max={2000}
-                    step={100}
-                    value={audioSettings.loudness}
-                    onChange={(v) => updateAudioLocal({ loudness: v })}
-                    onComplete={(v) => commitAudio({ loudness: v })}
-                  />
-                </View>
-              )}
-            </ScrollView>
-
-            <PressableScale style={styles.betaCloseBtn} onPress={() => setShowAudioModal(false)} activeScale={0.97}>
-              <Text style={styles.betaCloseBtnText}>완료</Text>
-            </PressableScale>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowAudioModal(false)}
+        settings={audioSettings}
+        info={audioInfo}
+        onLocal={updateAudioLocal}
+        onCommit={commitAudio}
+      />
     </View>
   );
 };
@@ -858,7 +607,6 @@ const styles = StyleSheet.create({
   storageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   storageLabel: { color: palette.textMuted, fontSize: 13 },
   storageValue: { color: palette.text, fontSize: 14, fontWeight: '700' },
-  divider: { height: 1, backgroundColor: palette.border, marginVertical: 16 },
   actionBtn: {
     borderWidth: 1,
     borderRadius: 8,
@@ -876,7 +624,6 @@ const styles = StyleSheet.create({
   updateFill: { height: '100%', borderRadius: 3, backgroundColor: palette.accent },
   updatePercent: { color: palette.accent, fontSize: 12, fontWeight: '700', marginTop: 6 },
   qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 },
   qualityChip: {
     backgroundColor: palette.border,
     borderWidth: 1,
@@ -911,80 +658,4 @@ const styles = StyleSheet.create({
   betaRowTitle: { color: palette.accent, fontSize: 15, fontWeight: '700', marginBottom: 2 },
   betaRowSub: { color: palette.textDim, fontSize: 12 },
   footerVersion: { textAlign: 'center', color: palette.textDim, fontSize: 12, marginTop: 10 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-  betaModalCard: {
-    backgroundColor: palette.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '82%',
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderBottomWidth: 0,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderColor: palette.border,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: palette.text },
-  betaModalContent: { paddingBottom: 20 },
-  betaWelcome: {
-    color: palette.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 24,
-    backgroundColor: palette.surfaceAlt,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  betaSettingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  betaSettingTitle: { color: palette.text, fontSize: 14, fontWeight: '700', marginBottom: 4 },
-  betaSettingDesc: { color: palette.textDim, fontSize: 12, lineHeight: 15 },
-  betaDivider: { height: 1, backgroundColor: palette.border, marginVertical: 18 },
-  toggleBtn: { width: 44, height: 24, borderRadius: 12, padding: 2, justifyContent: 'center' },
-  toggleOn: { backgroundColor: palette.accent },
-  toggleOff: { backgroundColor: palette.borderStrong },
-  toggleDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: palette.text },
-  dotOn: { alignSelf: 'flex-end' },
-  dotOff: { alignSelf: 'flex-start' },
-  timerSection: {
-    backgroundColor: palette.surfaceAlt,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  timerLabel: { color: palette.accent, fontSize: 12, fontWeight: '700', marginBottom: 8 },
-  timerChipRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
-  timerChip: {
-    backgroundColor: palette.border,
-    borderWidth: 1,
-    borderColor: palette.borderStrong,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginRight: 8,
-    marginBottom: 6,
-  },
-  timerChipActive: { backgroundColor: 'rgba(0, 230, 118, 0.1)', borderColor: palette.accent },
-  timerChipCancel: { backgroundColor: '#3d121a', borderColor: '#6b1b29' },
-  timerChipText: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
-  timerChipTextActive: { color: palette.accent },
-  timerChipTextCancel: { color: palette.danger, fontSize: 12, fontWeight: '600' },
-  betaCloseBtn: {
-    backgroundColor: palette.accent,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  betaCloseBtnText: { color: palette.accentInk, fontSize: 15, fontWeight: '700' },
 });

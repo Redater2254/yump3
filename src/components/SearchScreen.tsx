@@ -99,9 +99,7 @@ export const SearchScreen: React.FC = () => {
       // "Official audio" heuristic: prefer Topic channels / auto-generated uploads.
       let filtered = results;
       if (isOfficialOnly) {
-        const official = results.filter((r: any) =>
-          / - Topic$/i.test(r.artist || '') || r.official === true
-        );
+        const official = results.filter((r: any) => r.is_topic === true || r.official === true);
         if (official.length > 0) filtered = official;
       }
       setSearchResults(filtered);

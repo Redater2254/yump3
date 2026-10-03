@@ -64,19 +64,22 @@ export async function saveAudioSettings(settings: AudioEffectsSettings) {
   }
 }
 
+function mapEffectsInfo(info: any): AudioEffectsInfo {
+  return {
+    available: !!info?.available,
+    sessionId: Number(info?.sessionId || 0),
+    numBands: Number(info?.numBands || 0),
+    levelMin: Number(info?.levelMin ?? -1500),
+    levelMax: Number(info?.levelMax ?? 1500),
+    bands: info?.bands || [],
+    presets: info?.presets || [],
+  };
+}
+
 export async function getAudioEffectsInfo(): Promise<AudioEffectsInfo> {
   if (!AudioEffects) return { available: false, sessionId: 0 };
   try {
-    const info = await AudioEffects.getInfo();
-    return {
-      available: !!info?.available,
-      sessionId: Number(info?.sessionId || 0),
-      numBands: Number(info?.numBands || 0),
-      levelMin: Number(info?.levelMin ?? -1500),
-      levelMax: Number(info?.levelMax ?? 1500),
-      bands: info?.bands || [],
-      presets: info?.presets || [],
-    };
+    return mapEffectsInfo(await AudioEffects.getInfo());
   } catch (e) {
     return { available: false, sessionId: 0 };
   }

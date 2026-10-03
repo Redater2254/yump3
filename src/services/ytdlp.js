@@ -1,4 +1,4 @@
-import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
+import { NativeModules, NativeEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getAudioQuality, toYtDlpQuality } from './settings';
@@ -43,13 +43,16 @@ export async function ytSearch(query, limit = 10) {
 }
 
 function mapEntry(entry) {
-  let artist = entry.uploader || entry.channel || entry.artist || 'Unknown Artist';
-  if (artist.endsWith(' - Topic')) artist = artist.slice(0, -8);
+  const rawArtist = entry.uploader || entry.channel || entry.artist || 'Unknown Artist';
+  const isTopic = / - Topic$/i.test(rawArtist);
+  const artist = isTopic ? rawArtist.slice(0, -8) : rawArtist;
   const fallbackThumb = `https://i.ytimg.com/vi/${entry.id}/hqdefault.jpg`;
   return {
     youtube_id: entry.id,
     title: entry.title || entry.track || 'Unknown Title',
     artist,
+    // Kept so the "official audio" filter still works after the suffix strip.
+    is_topic: isTopic,
     duration: entry.duration || 0,
     thumbnail_url:
       entry.thumbnail ||
@@ -215,62 +218,6 @@ export function friendlyYtDlpError(raw) {
  * compares against the latest release and updates when needed. Reports progress
  * (0..1) and a status message so the UI can show a progress bar.
  */
-export async function runYtDlpBootstrap(onProgress) {
-  const report = (progress, message) => onProgress?.({ progress, message });
-
-  if (!YtDlp) {
-    report(1, '이 기기에서는 다운로더를 사용할 수 없습니다.');
-    return { ok: false, reason: 'unavailable', error: 'YtDlp native module missing' };
-  }
-
-  report(0.08, '다운로더 준비 중...');
-  const inited = await initYtDlp();
-  if (!inited) {
-    report(1, '다운로더를 준비하지 못했습니다.');
-    return { ok: false, reason: 'init', error: getLastInitError() || 'init failed' };
-  }
-  report(0.3, '다운로더 준비 완료');
-
-  report(0.4, '무결성 검사 중...');
-  let version = null;
-  let checkError = null;
-  try {
-    version = await selfCheckYtDlp();
-  } catch (e) {
-    checkError = String(e?.message || e);
-  }
-
-  report(0.55, '최신 버전 확인 중...');
-  const latest = await fetchLatestYtDlpVersion();
-
-  const needsUpdate = !version || (latest ? isVersionOlder(version, latest) : isYtDlpOutdated(version));
-  let updateError = null;
-  if (needsUpdate) {
-    report(0.7, 'yt-dlp 업데이트 중...');
-    try {
-      await updateYtDlp();
-    } catch (e) {
-      updateError = String(e?.message || e);
-    }
-    report(0.9, '무결성 재검사 중...');
-    try {
-      version = await selfCheckYtDlp();
-      checkError = null;
-    } catch (e) {
-      checkError = String(e?.message || e);
-      version = null;
-    }
-  }
-
-  if (!version) {
-    report(1, '다운로더를 준비하지 못했습니다.');
-    return { ok: false, reason: 'integrity', error: checkError || updateError || 'unknown' };
-  }
-
-  report(1, `준비 완료 (yt-dlp ${version})`);
-  return { ok: true, version, latest: latest || null };
-}
-
 /** Runs `yt-dlp --version` for real so a corrupt/partial extraction is caught
  * before the first download. */
 export async function selfCheckYtDlp() {
@@ -325,6 +272,66 @@ export function isVersionOlder(current, latest) {
   const a = versionScore(current);
   const b = versionScore(latest);
   return a > 0 && b > 0 && a < b;
+}
+
+async function runIntegrityCheck() {
+  try {
+    return await selfCheckYtDlp();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function runUpdateStep(report, version, latest) {
+  const needsUpdate = !version || (latest ? isVersionOlder(version, latest) : isYtDlpOutdated(version));
+  if (!needsUpdate) return { version, updateError: null };
+
+  report(0.7, 'yt-dlp 업데이트 중...');
+  let updateError = null;
+  try {
+    await updateYtDlp();
+  } catch (e) {
+    updateError = String(e?.message || e);
+  }
+  report(0.9, '무결성 재검사 중...');
+  return { version: await runIntegrityCheck(), updateError };
+}
+
+/**
+ * Startup bootstrap: initializes the bundled runtime, runs an integrity check,
+ * compares against the latest release and updates when needed. Reports progress
+ * (0..1) and a status message so the UI can show a progress bar.
+ */
+export async function runYtDlpBootstrap(onProgress) {
+  const report = (progress, message) => onProgress?.({ progress, message });
+
+  if (!YtDlp) {
+    report(1, '이 기기에서는 다운로더를 사용할 수 없습니다.');
+    return { ok: false, reason: 'unavailable', error: 'YtDlp native module missing' };
+  }
+
+  report(0.08, '다운로더 준비 중...');
+  const inited = await initYtDlp();
+  if (!inited) {
+    report(1, '다운로더를 준비하지 못했습니다.');
+    return { ok: false, reason: 'init', error: getLastInitError() || 'init failed' };
+  }
+  report(0.3, '다운로더 준비 완료');
+
+  report(0.4, '무결성 검사 중...');
+  const checked = await runIntegrityCheck();
+
+  report(0.55, '최신 버전 확인 중...');
+  const latest = await fetchLatestYtDlpVersion();
+
+  const { version, updateError } = await runUpdateStep(report, checked, latest);
+  if (!version) {
+    report(1, '다운로더를 준비하지 못했습니다.');
+    return { ok: false, reason: 'integrity', error: updateError || 'integrity check failed' };
+  }
+
+  report(1, `준비 완료 (yt-dlp ${version})`);
+  return { ok: true, version, latest: latest || null };
 }
 
 export async function deleteLocalFile(fileUri) {

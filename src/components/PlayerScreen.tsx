@@ -1,18 +1,6 @@
 import { palette, HIT_SLOP } from '../theme';
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  Image, 
-  Dimensions,
-  ActivityIndicator,
-  PanResponder,
-  FlatList,
-  Platform,
-  Modal,
-  ScrollView
-} from 'react-native';
+import { StyleSheet, Text, View, Dimensions, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +15,8 @@ import TrackPlayer, {
 import { runOnJS } from 'react-native-reanimated';
 import { PlayerControls } from '../services/player';
 import { MarqueeText } from './MarqueeText';
+import { QueueModal } from './player/QueueModal';
+import { useScrubber } from './player/useScrubber';
 import { TrackArtwork } from './TrackArtwork';
 import { PressableScale } from './ui/PressableScale';
 import { getLikedIds, toggleLike, updateTrackDuration } from '../services/library';
@@ -68,8 +58,6 @@ export const PlayerScreen: React.FC = () => {
   const [isDraggingProgress, setIsDraggingProgress] = useState(false);
   const [dragProgressPercent, setDragProgressPercent] = useState(0);
   
-  const dragStartPercent = useRef(0);
-  const dragStartVolume = useRef(0);
 
   // Sync refs to avoid stale closures inside PanResponder
   const currentTrackRef = useRef(currentTrack);
@@ -82,73 +70,36 @@ export const PlayerScreen: React.FC = () => {
   progressBarWidthRef.current = progressBarWidth;
   volumeBarWidthRef.current = volumeBarWidth;
 
-  const progressPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt, gestureState) => {
-        const widthVal = progressBarWidthRef.current;
-        const durVal = durationRef.current;
-        if (!currentTrackRef.current || durVal === 0 || widthVal <= 0) return;
-        setIsDraggingProgress(true);
-        const native = evt.nativeEvent;
-        const initialPercent = Math.max(0, Math.min(1, native.locationX / widthVal));
-        dragStartPercent.current = initialPercent;
-        setDragProgressPercent(initialPercent);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const widthVal = progressBarWidthRef.current;
-        if (widthVal <= 0) return;
-        const deltaPercent = gestureState.dx / widthVal;
-        const currentPercent = Math.max(0, Math.min(1, dragStartPercent.current + deltaPercent));
-        setDragProgressPercent(currentPercent);
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const widthVal = progressBarWidthRef.current;
-        const durVal = durationRef.current;
-        if (widthVal <= 0 || durVal === 0) {
-          setIsDraggingProgress(false);
-          return;
-        }
-        const deltaPercent = gestureState.dx / widthVal;
-        const finalPercent = Math.max(0, Math.min(1, dragStartPercent.current + deltaPercent));
-        const targetSeconds = finalPercent * durVal;
-        if (isFinite(targetSeconds) && !isNaN(targetSeconds)) {
-          PlayerControls.seekTo(targetSeconds);
-        }
+  const progressPanResponder = useScrubber({
+    getWidth: () => progressBarWidthRef.current,
+    onStart: (ratio) => {
+      if (!currentTrackRef.current || durationRef.current === 0) return;
+      setIsDraggingProgress(true);
+      setDragProgressPercent(ratio);
+    },
+    onMove: (ratio) => {
+      if (durationRef.current === 0) return;
+      setDragProgressPercent(ratio);
+    },
+    onEnd: (ratio) => {
+      if (durationRef.current === 0) {
         setIsDraggingProgress(false);
-      },
-    })
-  ).current;
+        return;
+      }
+      const targetSeconds = ratio * durationRef.current;
+      if (Number.isFinite(targetSeconds)) {
+        PlayerControls.seekTo(targetSeconds);
+      }
+      setIsDraggingProgress(false);
+    },
+  });
 
-  const volumePanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt, gestureState) => {
-        const widthVal = volumeBarWidthRef.current;
-        if (widthVal <= 0) return;
-        const native = evt.nativeEvent;
-        const initialPercent = Math.max(0, Math.min(1, native.locationX / widthVal));
-        dragStartVolume.current = initialPercent;
-        handleVolumeChange(initialPercent);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        const widthVal = volumeBarWidthRef.current;
-        if (widthVal <= 0) return;
-        const deltaPercent = gestureState.dx / widthVal;
-        const currentPercent = Math.max(0, Math.min(1, dragStartVolume.current + deltaPercent));
-        handleVolumeChange(currentPercent);
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const widthVal = volumeBarWidthRef.current;
-        if (widthVal <= 0) return;
-        const deltaPercent = gestureState.dx / widthVal;
-        const finalPercent = Math.max(0, Math.min(1, dragStartVolume.current + deltaPercent));
-        handleVolumeChange(finalPercent);
-      },
-    })
-  ).current;
+  const volumePanResponder = useScrubber({
+    getWidth: () => volumeBarWidthRef.current,
+    onStart: (ratio) => handleVolumeChange(ratio),
+    onMove: (ratio) => handleVolumeChange(ratio),
+    onEnd: (ratio) => handleVolumeChange(ratio),
+  });
 
   const loadLikedIds = async (force = false) => {
     if (likesLoadedRef.current && !force) return;
@@ -501,56 +452,13 @@ export const PlayerScreen: React.FC = () => {
         </View>
       )}
 
-      <Modal
+      <QueueModal
         visible={queueVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setQueueVisible(false)}
-      >
-        <View style={styles.queueOverlay}>
-          <View style={styles.queueCard}>
-            <View style={styles.queueHeader}>
-              <Text style={styles.queueTitle}>재생 대기열 ({queue.length})</Text>
-              <PressableScale
-                onPress={() => setQueueVisible(false)}
-                style={styles.queueCloseBtn}
-                activeScale={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Close queue"
-              >
-                <Ionicons name="close" size={22} color={palette.text} />
-              </PressableScale>
-            </View>
-            <FlatList
-              data={queue}
-              keyExtractor={(item, idx) => `${item.id}-${idx}`}
-              renderItem={({ item, index }) => {
-                const isActive = index === queueActiveIndex;
-                return (
-                  <PressableScale
-                    style={[styles.queueRow, isActive && styles.queueRowActive]}
-                    onPress={() => handleSelectQueueItem(index)}
-                    activeScale={0.98}
-                  >
-                    <Ionicons
-                      name={isActive ? 'volume-high' : 'musical-note-outline'}
-                      size={16}
-                      color={isActive ? palette.accent : palette.textDim}
-                    />
-                    <View style={styles.queueMeta}>
-                      <Text style={[styles.queueRowTitle, isActive && styles.queueRowTitleActive]} numberOfLines={1}>{item.title}</Text>
-                      <Text style={styles.queueRowArtist} numberOfLines={1}>{item.artist}</Text>
-                    </View>
-                    {isActive && <Text style={styles.queueNowBadge}>재생 중</Text>}
-                  </PressableScale>
-                );
-              }}
-              ListEmptyComponent={<Text style={styles.queueEmpty}>대기열이 비어 있습니다.</Text>}
-              contentContainerStyle={{ paddingBottom: 20 }}
-            />
-          </View>
-        </View>
-      </Modal>
+        queue={queue}
+        activeIndex={queueActiveIndex}
+        onSelect={handleSelectQueueItem}
+        onClose={() => setQueueVisible(false)}
+      />
     </View>
   );
 };
@@ -774,80 +682,5 @@ const styles = StyleSheet.create({
     color: palette.textDim,
     fontSize: 12,
     opacity: 0.7,
-  },
-  queueOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'flex-end',
-  },
-  queueCard: {
-    backgroundColor: palette.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    maxHeight: '75%',
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  queueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderColor: palette.border,
-    paddingBottom: 12,
-    marginBottom: 8,
-  },
-  queueTitle: {
-    color: palette.text,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  queueCloseBtn: {
-    padding: 4,
-  },
-  queueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginBottom: 6,
-    backgroundColor: palette.surfaceAlt,
-  },
-  queueRowActive: {
-    backgroundColor: palette.accentWash,
-    borderWidth: 1,
-    borderColor: palette.accent,
-  },
-  queueMeta: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  queueRowTitle: {
-    color: palette.text,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  queueRowTitleActive: {
-    color: palette.accent,
-  },
-  queueRowArtist: {
-    color: palette.textDim,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  queueNowBadge: {
-    color: palette.accent,
-    fontSize: 12,
-    fontWeight: '800',
-    marginLeft: 8,
-  },
-  queueEmpty: {
-    color: palette.textDim,
-    textAlign: 'center',
-    marginVertical: 30,
-    fontSize: 13,
   },
 });

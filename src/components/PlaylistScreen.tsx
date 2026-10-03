@@ -1,23 +1,19 @@
 import { palette, HIT_SLOP } from '../theme';
 import React, { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  FlatList, 
-  Image, 
-  ActivityIndicator, 
-  TextInput,
-  Modal,
-  BackHandler
-} from 'react-native';
+import { StyleSheet, Text, View, Image, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
 import { Skeleton } from './ui/Skeleton';
 import { SwipeToDelete } from './ui/SwipeToDelete';
+import { LibraryListArea } from './library/LibraryListArea';
+import {
+  AddToPlaylistModal,
+  BatchActionBar,
+  CreatePlaylistModal,
+  RenamePlaylistModal,
+} from './library/LibraryModals';
 import { playPlaylist } from '../services/player';
 import { deleteLocalFile, trackThumbUrl } from '../services/ytdlp';
 import {
@@ -633,256 +629,80 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
         </View>
       )}
 
-      {selectedPlaylist ? (
-        loadingTracks ? (
-          renderSkeletonList()
-        ) : (
-          <FlatList
-            data={playlistTracks}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={renderTrackItem}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.emptyView}>
-                <Ionicons name="musical-notes-outline" size={48} color={palette.borderStrong} />
-                <Text style={styles.emptyText}>플레이리스트가 비어 있습니다.</Text>
-                <Text style={styles.emptySubText}>검색 탭에서 곡을 찾아 다운로드하세요.</Text>
-              </View>
-            }
-          />
-        )
-      ) : (
-        activeTab === 'downloads' ? (
-          loadingDownloads ? (
-            renderSkeletonList()
-          ) : (
-            <FlatList
-              data={downloadedTracks}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderDownloadedTrackItem}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={
-                <View style={styles.emptyView}>
-                  <Ionicons name="cloud-download-outline" size={48} color={palette.borderStrong} />
-                  <Text style={styles.emptyText}>다운로드한 곡이 없습니다.</Text>
-                  <Text style={styles.emptySubText}>검색 탭에서 곡을 찾아 다운로드하세요.</Text>
-                </View>
-              }
-            />
-          )
-        ) : activeTab === 'playlists' ? (
-          loadingPlaylists ? (
-            renderSkeletonList()
-          ) : (
-            <FlatList
-              data={playlists}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderPlaylistCard}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={
-                <View style={styles.emptyView}>
-                  <Text style={styles.emptyText}>플레이리스트가 없습니다.</Text>
-                </View>
-              }
-            />
-          )
-        ) : (
-          loadingLikes ? (
-            renderSkeletonList()
-          ) : (
-            <FlatList
-              data={likedTracks}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderLikedTrackItem}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={
-                <View style={styles.emptyView}>
-                  <Ionicons name="heart-outline" size={48} color={palette.borderStrong} />
-                  <Text style={styles.emptyText}>즐겨찾기한 곡이 없습니다.</Text>
-                  <Text style={styles.emptySubText}>플레이어에서 하트를 눌러 추가하세요.</Text>
-                </View>
-              }
-            />
-          )
-        )
-      )}
+      <LibraryListArea
+        activeTab={activeTab}
+        renderSkeleton={() => renderSkeletonList()}
+        selectedPlaylist={selectedPlaylist}
+        loadingTracks={loadingTracks}
+        playlistTracks={playlistTracks}
+        renderTrackItem={renderTrackItem}
+        loadingDownloads={loadingDownloads}
+        downloadedTracks={downloadedTracks}
+        renderDownloadedItem={renderDownloadedTrackItem}
+        loadingPlaylists={loadingPlaylists}
+        playlists={playlists}
+        renderPlaylistCard={renderPlaylistCard}
+        loadingLikes={loadingLikes}
+        likedTracks={likedTracks}
+        renderLikedItem={renderLikedTrackItem}
+      />
 
       {isSelectMode && selectedTrackIds.length > 0 && (
-        <View style={styles.batchActionBar}>
-          <Text style={styles.batchActionText}>
-            {selectedTrackIds.length} tracks selected
-          </Text>
-          <View style={styles.batchButtons}>
-            <PressableScale 
-              style={styles.batchCancelBtn}
-              onPress={() => {
-                setSelectedTrackIds([]);
-                setIsSelectMode(false);
-              }}
-              activeScale={0.95}
-            >
-              <Text style={styles.batchCancelBtnText}>취소</Text>
-            </PressableScale>
-            <PressableScale 
-              style={styles.batchAddBtn}
-              onPress={() => {
-                setTrackToAddToPlaylist(null); // Ensure batch mode flag is correct
-                setShowAddToPlaylistModal(true);
-              }}
-              activeScale={0.95}
-            >
-              <Text style={styles.batchAddBtnText}>플레이리스트에 추가</Text>
-            </PressableScale>
-          </View>
-        </View>
+        <BatchActionBar
+          count={selectedTrackIds.length}
+          onCancel={() => {
+            setSelectedTrackIds([]);
+            setIsSelectMode(false);
+          }}
+          onAdd={() => {
+            setTrackToAddToPlaylist(null);
+            setShowAddToPlaylistModal(true);
+          }}
+        />
       )}
 
-      <Modal
+      <CreatePlaylistModal
         visible={showCreateModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowCreateModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>플레이리스트 만들기</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Playlist name"
-              placeholderTextColor={palette.textDim}
-              value={newPlaylistName}
-              onChangeText={setNewPlaylistName}
-              autoFocus
-            />
-            <View style={styles.modalButtons}>
-              <PressableScale 
-                style={[styles.modalBtn, styles.cancelBtn]} 
-                onPress={() => {
-                  setNewPlaylistName('');
-                  setShowCreateModal(false);
-                }}
-              >
-                <Text style={styles.cancelBtnText}>취소</Text>
-              </PressableScale>
-              <PressableScale 
-                style={[styles.modalBtn, styles.confirmBtn]} 
-                onPress={handleCreatePlaylist}
-                disabled={creatingPlaylist}
-              >
-                {creatingPlaylist ? (
-                  <ActivityIndicator color={palette.accentInk} size="small" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>만들기</Text>
-                )}
-              </PressableScale>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        name={newPlaylistName}
+        onChangeName={setNewPlaylistName}
+        onCancel={() => {
+          setNewPlaylistName('');
+          setShowCreateModal(false);
+        }}
+        onSubmit={handleCreatePlaylist}
+        creating={creatingPlaylist}
+      />
 
-      <Modal
+      <RenamePlaylistModal
         visible={showRenameModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowRenameModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>이름 변경</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Playlist name"
-              placeholderTextColor={palette.textDim}
-              value={renamePlaylistName}
-              onChangeText={setRenamePlaylistName}
-              autoFocus
-            />
-            <View style={styles.modalButtons}>
-              <PressableScale 
-                style={[styles.modalBtn, styles.cancelBtn]} 
-                onPress={() => {
-                  setRenamePlaylistName('');
-                  setShowRenameModal(false);
-                }}
-              >
-                <Text style={styles.cancelBtnText}>취소</Text>
-              </PressableScale>
-              <PressableScale 
-                style={[styles.modalBtn, styles.confirmBtn]} 
-                onPress={handleRenamePlaylist}
-                disabled={renamingPlaylist}
-              >
-                {renamingPlaylist ? (
-                  <ActivityIndicator color={palette.accentInk} size="small" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>저장</Text>
-                )}
-              </PressableScale>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        name={renamePlaylistName}
+        onChangeName={setRenamePlaylistName}
+        onCancel={() => {
+          setRenamePlaylistName('');
+          setShowRenameModal(false);
+        }}
+        onSubmit={handleRenamePlaylist}
+        renaming={renamingPlaylist}
+      />
 
-      <Modal
+      <AddToPlaylistModal
         visible={showAddToPlaylistModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => {
+        subtitle={
+          trackToAddToPlaylist
+            ? `"${trackToAddToPlaylist.title}" 추가 위치`
+            : `${selectedTrackIds.length}곡 추가 위치`
+        }
+        playlists={playlists}
+        onSelect={handleSelectPlaylistTarget}
+        onCancel={() => {
           setShowAddToPlaylistModal(false);
           setTrackToAddToPlaylist(null);
         }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>플레이리스트에 추가</Text>
-            <Text style={styles.modalSubtitle}>
-              {trackToAddToPlaylist 
-                ? `Add "${trackToAddToPlaylist.title}" to:` 
-                : `Add ${selectedTrackIds.length} tracks to:`}
-            </Text>
-            
-            <FlatList
-              data={playlists}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={({ item }) => (
-                <PressableScale 
-                  style={styles.playlistItem} 
-                  onPress={() => handleSelectPlaylistTarget(item.id)}
-                >
-                  <Ionicons name="musical-notes-outline" size={20} color={palette.accent} style={styles.playlistIcon} />
-                  <Text style={styles.playlistItemText}>{item.name}</Text>
-                </PressableScale>
-              )}
-              style={styles.modalList}
-              ListEmptyComponent={
-                <Text style={styles.emptyText}>플레이리스트가 없습니다. 먼저 만들어 주세요.</Text>
-              }
-            />
-
-            <PressableScale
-              style={styles.createInlineBtn}
-              onPress={() => {
-                setShowAddToPlaylistModal(false);
-                setShowCreateModal(true);
-              }}
-              activeScale={0.97}
-            >
-              <Ionicons name="add" size={18} color={palette.accent} />
-              <Text style={styles.createInlineText}>새 플레이리스트 만들기</Text>
-            </PressableScale>
-
-            <PressableScale 
-              style={styles.modalCloseButton} 
-              onPress={() => {
-                setShowAddToPlaylistModal(false);
-                setTrackToAddToPlaylist(null);
-              }}
-            >
-              <Text style={styles.modalCloseButtonText}>취소</Text>
-            </PressableScale>
-          </View>
-        </View>
-      </Modal>
+        onCreateNew={() => {
+          setShowAddToPlaylistModal(false);
+          setShowCreateModal(true);
+        }}
+      />
     </View>
   );
 };
@@ -1024,9 +844,6 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: palette.accent,
   },
-  listContent: {
-    paddingBottom: 120,
-  },
   playlistCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1133,174 +950,6 @@ const styles = StyleSheet.create({
   removeBtn: {
     padding: 8,
     marginLeft: 4,
-  },
-  batchActionBar: {
-    position: 'absolute',
-    bottom: 70, // Sits above tab bar
-    left: 20,
-    right: 20,
-    backgroundColor: '#1c212c',
-    borderRadius: 10,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2d3748',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  batchActionText: {
-    color: palette.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  batchButtons: {
-    flexDirection: 'row',
-  },
-  batchCancelBtn: {
-    backgroundColor: palette.border,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  batchCancelBtnText: {
-    color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  batchAddBtn: {
-    backgroundColor: palette.accent,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  batchAddBtnText: {
-    color: palette.accentInk,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  emptyView: {
-    alignItems: 'center',
-    marginTop: 80,
-    paddingHorizontal: 40,
-  },
-  emptyText: {
-    color: palette.textMuted,
-    fontSize: 15,
-    fontWeight: '600',
-    marginTop: 14,
-    textAlign: 'center',
-  },
-  emptySubText: {
-    color: palette.textMuted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 18,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    backgroundColor: palette.surface,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: palette.text,
-    marginBottom: 16,
-  },
-  modalSubtitle: {
-    color: palette.textMuted,
-    fontSize: 13,
-    marginBottom: 20,
-  },
-  modalInput: {
-    backgroundColor: palette.border,
-    color: palette.text,
-    borderWidth: 1,
-    borderColor: palette.borderStrong,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-  },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelBtn: {
-    backgroundColor: palette.border,
-    marginRight: 10,
-  },
-  cancelBtnText: {
-    color: palette.text,
-    fontWeight: '600',
-  },
-  confirmBtn: {
-    backgroundColor: palette.accent,
-  },
-  confirmBtnText: {
-    color: palette.accentInk,
-    fontWeight: '700',
-  },
-  modalList: {
-    marginBottom: 15,
-    maxHeight: 250,
-  },
-  playlistItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: palette.border,
-  },
-  playlistIcon: {
-    marginRight: 12,
-  },
-  playlistItemText: {
-    color: palette.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  createInlineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: palette.accent,
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginBottom: 10,
-  },
-  createInlineText: { color: palette.accent, fontSize: 14, fontWeight: '700', marginLeft: 6 },
-  modalCloseButton: {
-    backgroundColor: palette.border,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalCloseButtonText: {
-    color: palette.text,
-    fontWeight: '600',
   },
   downloadDeleteIconBtn: {
     padding: 8,

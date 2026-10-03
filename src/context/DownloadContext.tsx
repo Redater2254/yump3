@@ -57,6 +57,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const playlistInFlightRef = useRef<Set<string>>(new Set());
   const notifierActiveRef = useRef(false);
   const lastNotifyAtRef = useRef(0);
+  // Ids created in the current download batch (old finished tasks are excluded).
+  const batchIdsRef = useRef<Set<string>>(new Set());
 
   const ensureNotificationPermission = async () => {
     if (Platform.OS !== 'android' || Number(Platform.Version) < 33) return;
@@ -73,6 +75,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Keep the foreground service alive for the whole batch: stopping it between
     // tracks would make Android refuse to restart it from the background.
     if (tasks.length === 0) {
+      batchIdsRef.current.clear();
       if (notifierActiveRef.current) {
         notifierActiveRef.current = false;
         try {
@@ -88,8 +91,9 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     lastNotifyAtRef.current = now;
 
     const active = tasks.filter((t) => t.status === 'downloading');
-    const total = tasks.length;
-    const done = tasks.filter((t) => t.status !== 'downloading').length;
+    const batch = tasks.filter((t) => batchIdsRef.current.has(t.id));
+    const total = batch.length > 0 ? batch.length : tasks.length;
+    const done = (batch.length > 0 ? batch : tasks).filter((t) => t.status !== 'downloading').length;
     let sub: string;
     let progress: number;
     if (active.length > 0) {
@@ -162,6 +166,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const triggerDownload = async (track: { youtube_id: string; title: string; artist: string; duration?: number; thumbnail_url?: string }) => {
     const youtubeId = track.youtube_id;
     if (inFlightRef.current.has(youtubeId)) return;
+    batchIdsRef.current.add(youtubeId);
     await ensureNotificationPermission();
 
     setDownloadTasks((prev) => [
@@ -213,6 +218,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         throw new Error('재생목록에서 곡을 찾지 못했습니다.');
       }
 
+      tracks.forEach((t: any) => batchIdsRef.current.add(t.youtube_id));
       setDownloadTasks((prev) => {
         const existing = new Set(prev.map((t) => t.id));
         const fresh = tracks

@@ -120,6 +120,47 @@ export async function startUpdateDownload(info: UpdateInfo): Promise<void> {
   await ApkUpdater.start(info.apkUrl, info.latest || '');
 }
 
+function toDownloadState(res: any) {
+  const total = Number(res?.total || 0);
+  const downloaded = Number(res?.downloaded || 0);
+  const percent = Number(res?.progress ?? -1);
+  return {
+    running: !!res?.running,
+    progress:
+      total > 0
+        ? Math.max(0, Math.min(1, downloaded / total))
+        : percent >= 0
+          ? Math.max(0, Math.min(1, percent / 100))
+          : 0,
+    downloaded,
+    total,
+    error: res?.error ? String(res.error) : null,
+    path: res?.path ? String(res.path) : null,
+  };
+}
+
+/**
+ * A leftover APK only counts as a pending update when it is newer than the
+ * installed version; otherwise the cache is cleaned up.
+ */
+async function resolveReady(state: { running: boolean; error: string | null; path: string | null }) {
+  if (state.running || state.error || !state.path) return false;
+  const stored = await AsyncStorage.getItem(UPDATE_VERSION_KEY);
+  const installed = await loadInstalledVersion();
+  if (stored && isNewer(installed, stored)) return true;
+  try {
+    await AsyncStorage.removeItem(UPDATE_VERSION_KEY);
+  } catch (e) {
+    // ignore
+  }
+  try {
+    await ApkUpdater.clear();
+  } catch (e) {
+    // ignore
+  }
+  return false;
+}
+
 /** Current state of the background update download. */
 export async function getUpdateDownloadState(): Promise<UpdateDownloadState> {
   const empty: UpdateDownloadState = {
@@ -131,47 +172,14 @@ export async function getUpdateDownloadState(): Promise<UpdateDownloadState> {
   };
   if (!ApkUpdater) return empty;
   try {
-    const res = await ApkUpdater.status();
-    const total = Number(res?.total || 0);
-    const downloaded = Number(res?.downloaded || 0);
-    const percent = Number(res?.progress ?? -1);
-    const running = !!res?.running;
-    const error = res?.error ? String(res.error) : null;
-    const path = res?.path ? String(res.path) : null;
-
-    let ready = false;
-    if (!running && !error && path) {
-      // Only treat a leftover file as an update when it is newer than the
-      // installed version; otherwise clean it up (prevents false "완료" notices).
-      const stored = await AsyncStorage.getItem(UPDATE_VERSION_KEY);
-      const installed = await loadInstalledVersion();
-      if (stored && isNewer(installed, stored)) {
-        ready = true;
-      } else {
-        try {
-          await AsyncStorage.removeItem(UPDATE_VERSION_KEY);
-        } catch (e) {
-          // ignore
-        }
-        try {
-          await ApkUpdater.clear();
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
-
+    const state = toDownloadState(await ApkUpdater.status());
+    const ready = await resolveReady(state);
     return {
-      running,
-      progress:
-        total > 0
-          ? Math.max(0, Math.min(1, downloaded / total))
-          : percent >= 0
-            ? Math.max(0, Math.min(1, percent / 100))
-            : 0,
-      downloaded,
-      total,
-      error,
+      running: state.running,
+      progress: state.progress,
+      downloaded: state.downloaded,
+      total: state.total,
+      error: state.error,
       ready,
     };
   } catch (e) {

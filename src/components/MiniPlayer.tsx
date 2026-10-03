@@ -1,14 +1,6 @@
 import { palette } from '../theme';
 import React, { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  Image, 
-  ActivityIndicator, 
-  Dimensions,
-  Platform
-} from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TrackPlayer, { 
   usePlaybackState, 
@@ -24,8 +16,6 @@ import { PlayerControls } from '../services/player';
 import { MarqueeText } from './MarqueeText';
 import { TrackArtwork } from './TrackArtwork';
 import { PressableScale } from './ui/PressableScale';
-
-const { width } = Dimensions.get('window');
 
 interface MiniPlayerProps {
   onPress: () => void;
