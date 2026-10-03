@@ -440,10 +440,18 @@ index b2409a0..6958e84 100644
      }
  }
 diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-index afa6b0f..72cf87c 100644
+index afa6b0f..23435d7 100644
 --- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
 +++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
-@@ -94,8 +94,14 @@ class MusicService : HeadlessJsTaskService() {
+@@ -4,6 +4,7 @@ import android.app.*
+ import android.content.Context
+ import android.content.Intent
+ import android.content.pm.ServiceInfo
++import android.media.AudioManager
+ import android.net.Uri
+ import android.os.Binder
+ import android.os.Build
+@@ -94,8 +95,14 @@ class MusicService : HeadlessJsTaskService() {
      private var compactCapabilities: List<Capability> = emptyList()
  
      override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -460,7 +468,7 @@ index afa6b0f..72cf87c 100644
          return START_STICKY
      }
  
-@@ -120,9 +126,15 @@ class MusicService : HeadlessJsTaskService() {
+@@ -120,9 +127,15 @@ class MusicService : HeadlessJsTaskService() {
              notificationBuilder.foregroundServiceBehavior = NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE
          }
          val notification = notificationBuilder.build()
@@ -479,7 +487,40 @@ index afa6b0f..72cf87c 100644
      }
  
      @MainThread
-@@ -741,7 +753,7 @@ class MusicService : HeadlessJsTaskService() {
+@@ -157,6 +170,32 @@ class MusicService : HeadlessJsTaskService() {
+         val automaticallyUpdateNotificationMetadata = playerOptions?.getBoolean(AUTO_UPDATE_METADATA, true) ?: true
+ 
+         player = QueuedAudioPlayer(this@MusicService, playerConfig, bufferConfig, cacheConfig)
++
++        // Give the player a known audio session id so in-app effects (EQ/3D)
++        // can attach to it, and expose it for the React Native module.
++        try {
++            var cls: Class<*>? = player.javaClass
++            var exo: Any? = null
++            while (cls != null && exo == null) {
++                try {
++                    val method = cls.getDeclaredMethod("getExoPlayer")
++                    method.isAccessible = true
++                    exo = method.invoke(player)
++                } catch (e: NoSuchMethodException) {
++                    cls = cls.superclass
++                }
++            }
++            if (exo != null) {
++                val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
++                val id = if (audioSessionId != 0) audioSessionId else audioManager.generateAudioSessionId()
++                exo.javaClass
++                    .getMethod("setAudioSessionId", Int::class.javaPrimitiveType)
++                    .invoke(exo, id)
++                audioSessionId = id
++            }
++        } catch (e: Throwable) {
++            // Non-fatal: audio effects just stay unavailable.
++        }
+         player.automaticallyUpdateNotificationMetadata = automaticallyUpdateNotificationMetadata
+         observeEvents()
+         setupForegrounding()
+@@ -741,7 +780,7 @@ class MusicService : HeadlessJsTaskService() {
  
      @MainThread
      private fun emit(event: String, data: Bundle? = null) {
@@ -488,7 +529,7 @@ index afa6b0f..72cf87c 100644
              ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
              ?.emit(event, data?.let { Arguments.fromBundle(it) })
      }
-@@ -751,7 +763,7 @@ class MusicService : HeadlessJsTaskService() {
+@@ -751,7 +790,7 @@ class MusicService : HeadlessJsTaskService() {
          val payload = Arguments.createArray()
          data.forEach { payload.pushMap(Arguments.fromBundle(it)) }
  
@@ -497,3 +538,16 @@ index afa6b0f..72cf87c 100644
              ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
              ?.emit(event, payload)
      }
+@@ -813,6 +852,12 @@ class MusicService : HeadlessJsTaskService() {
+ 
+     companion object {
+         const val EMPTY_NOTIFICATION_ID = 1
++
++        /** Known audio session id (0 when not initialised yet). */
++        @Volatile
++        var audioSessionId: Int = 0
++            private set
++
+         const val STATE_KEY = "state"
+         const val ERROR_KEY  = "error"
+         const val EVENT_KEY = "event"

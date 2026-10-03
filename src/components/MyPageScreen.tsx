@@ -32,6 +32,17 @@ import {
 } from '../services/player';
 import { isHapticsEnabled, setHapticsEnabled, hapticLight } from '../services/haptics';
 import { AUDIO_QUALITY_OPTIONS, getAudioQuality, setAudioQuality } from '../services/settings';
+import { Slider } from './ui/Slider';
+import {
+  DEFAULT_AUDIO_SETTINGS,
+  loadAudioSettings,
+  saveAudioSettings,
+  applyAudioSettings,
+  getAudioEffectsInfo,
+  AudioEffectsInfo,
+  AudioEffectsSettings,
+} from '../services/audioEffects';
+import { setBitPerfectMode } from '../services/player';
 
 const BETA_TRANSITION_KEY = 'yump3_beta_smart_transition';
 const BETA_TIMER_KEY = 'yump3_beta_sleep_timer';
@@ -48,6 +59,9 @@ export const MyPageScreen: React.FC = () => {
   const [hapticsEnabled, setHapticsEnabledState] = useState(true);
   const [audioQuality, setAudioQualityState] = useState('best');
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [showAudioModal, setShowAudioModal] = useState(false);
+  const [audioSettings, setAudioSettings] = useState<AudioEffectsSettings>(DEFAULT_AUDIO_SETTINGS);
+  const [audioInfo, setAudioInfo] = useState<AudioEffectsInfo>({ available: false, sessionId: 0 });
 
   const [sleepRemaining, setSleepRemaining] = useState(0);
   const [selectedMinutes, setSelectedMinutes] = useState<number | null>(null);
@@ -281,10 +295,45 @@ export const MyPageScreen: React.FC = () => {
     );
   };
 
-  const handleSetQuality = async (value: string) => {
-    setAudioQualityState(value);
+  const handleSetQuality = async (value: string) => {    setAudioQualityState(value);
     await setAudioQuality(value);
     showToast('다운로드 음질을 저장했습니다.');
+  };
+
+  const openAudioModal = async () => {
+    try {
+      const [settings, info] = await Promise.all([loadAudioSettings(), getAudioEffectsInfo()]);
+      const merged: AudioEffectsSettings = { ...settings };
+      if (
+        (!merged.bandLevels || merged.bandLevels.length === 0) &&
+        info.bands &&
+        info.bands.length > 0
+      ) {
+        merged.bandLevels = info.bands.map((band) => band.level);
+      }
+      setAudioSettings(merged);
+      setAudioInfo(info);
+      setShowAudioModal(true);
+    } catch (e) {
+      showAlert('오류', '오디오 설정을 불러오지 못했습니다.');
+    }
+  };
+
+  const updateAudioLocal = (patch: Partial<AudioEffectsSettings>) => {
+    setAudioSettings((prev) => ({ ...prev, ...patch }));
+  };
+
+  const commitAudio = async (patch: Partial<AudioEffectsSettings>) => {
+    const next: AudioEffectsSettings = { ...audioSettings, ...patch };
+    setAudioSettings(next);
+    if (next.bitPerfect !== audioSettings.bitPerfect) {
+      setBitPerfectMode(next.bitPerfect);
+    }
+    await saveAudioSettings(next);
+    const applied = await applyAudioSettings(next);
+    if (!applied && next.enabled && !audioInfo.available) {
+      showToast('이 기기에서는 오디오 효과를 사용할 수 없습니다.', 'error');
+    }
   };
 
   const handleUpdateYtDlp = async () => {
@@ -467,6 +516,24 @@ export const MyPageScreen: React.FC = () => {
           ) : null}
         </View>
 
+        {/* Audio */}
+        <PressableScale
+          style={styles.betaRow}
+          onPress={openAudioModal}
+          activeScale={0.98}
+        >
+          <View style={styles.betaRowLeft}>
+            <View style={styles.betaFlask}>
+              <Ionicons name="options-outline" size={20} color="#00e676" />
+            </View>
+            <View style={{ marginLeft: 12 }}>
+              <Text style={styles.betaRowTitle}>오디오</Text>
+              <Text style={styles.betaRowSub}>이퀄라이저 · 3D 음향 · 원음 모드</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#7c8598" />
+        </PressableScale>
+
         {/* Beta lab */}
         <PressableScale
           style={styles.betaRow}
@@ -602,6 +669,162 @@ export const MyPageScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Audio modal */}
+      <Modal
+        visible={showAudioModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAudioModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.betaModalCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="options" size={22} color="#00e676" style={{ marginRight: 8 }} />
+                <Text style={styles.modalTitle}>오디오</Text>
+              </View>
+              <PressableScale onPress={() => setShowAudioModal(false)} activeScale={0.8}>
+                <Ionicons name="close" size={24} color="#ffffff" />
+              </PressableScale>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.betaModalContent}>
+              {!audioInfo.available && (
+                <Text style={styles.betaWelcome}>
+                  이 기기에서는 이퀄라이저/3D 효과를 지원하지 않습니다. 원음 모드는 사용할 수 있습니다.
+                </Text>
+              )}
+
+              <View style={styles.betaSettingRow}>
+                <View style={{ flex: 1, paddingRight: 15 }}>
+                  <Text style={styles.betaSettingTitle}>원음 모드 (비트퍼펙트 지향)</Text>
+                  <Text style={styles.betaSettingDesc}>
+                    페이드·속도 램프·DSP를 끄고 원음 그대로 재생합니다.
+                  </Text>
+                </View>
+                <PressableScale
+                  style={[styles.toggleBtn, audioSettings.bitPerfect ? styles.toggleOn : styles.toggleOff]}
+                  onPress={() => commitAudio({ bitPerfect: !audioSettings.bitPerfect })}
+                >
+                  <View style={[styles.toggleDot, audioSettings.bitPerfect ? styles.dotOn : styles.dotOff]} />
+                </PressableScale>
+              </View>
+
+              <View style={styles.betaDivider} />
+
+              <View style={styles.betaSettingRow}>
+                <View style={{ flex: 1, paddingRight: 15 }}>
+                  <Text style={styles.betaSettingTitle}>이퀄라이저</Text>
+                  <Text style={styles.betaSettingDesc}>
+                    기기 EQ 밴드(프리셋/커스텀)를 조절합니다.
+                  </Text>
+                </View>
+                <PressableScale
+                  style={[styles.toggleBtn, audioSettings.enabled ? styles.toggleOn : styles.toggleOff]}
+                  onPress={() => commitAudio({ enabled: !audioSettings.enabled })}
+                >
+                  <View style={[styles.toggleDot, audioSettings.enabled ? styles.dotOn : styles.dotOff]} />
+                </PressableScale>
+              </View>
+
+              {audioSettings.enabled && audioInfo.available && (
+                <View style={{ marginTop: 6 }}>
+                  {audioInfo.presets && audioInfo.presets.length > 0 && (
+                    <View style={styles.presetRow}>
+                      {audioInfo.presets.map((preset) => {
+                        const active = audioSettings.preset === preset.index;
+                        return (
+                          <PressableScale
+                            key={preset.index}
+                            style={[styles.qualityChip, active && styles.qualityChipActive]}
+                            onPress={() => commitAudio({ preset: preset.index })}
+                            activeScale={0.95}
+                          >
+                            <Text
+                              style={[
+                                styles.qualityChipText,
+                                active && styles.qualityChipTextActive,
+                              ]}
+                            >
+                              {preset.name}
+                            </Text>
+                          </PressableScale>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {(audioInfo.bands || []).map((band, index) => {
+                    const level = audioSettings.bandLevels[index] ?? band.level;
+                    const dB = level / 100;
+                    const freq =
+                      band.centerFreq >= 1000
+                        ? `${(band.centerFreq / 1000).toFixed(0)}k`
+                        : `${band.centerFreq}`;
+                    return (
+                      <Slider
+                        key={band.index}
+                        label={`${freq} Hz`}
+                        valueLabel={`${dB > 0 ? '+' : ''}${dB.toFixed(1)} dB`}
+                        min={audioInfo.levelMin ?? -1500}
+                        max={audioInfo.levelMax ?? 1500}
+                        step={100}
+                        value={level}
+                        onChange={(v) => {
+                          const next = [...audioSettings.bandLevels];
+                          next[index] = v;
+                          updateAudioLocal({ preset: null, bandLevels: next });
+                        }}
+                        onComplete={(v) => {
+                          const next = [...audioSettings.bandLevels];
+                          next[index] = v;
+                          commitAudio({ preset: null, bandLevels: next });
+                        }}
+                      />
+                    );
+                  })}
+
+                  <Slider
+                    label="베이스 부스트"
+                    valueLabel={`${Math.round((audioSettings.bass / 1000) * 100)}%`}
+                    min={0}
+                    max={1000}
+                    step={50}
+                    value={audioSettings.bass}
+                    onChange={(v) => updateAudioLocal({ bass: v })}
+                    onComplete={(v) => commitAudio({ bass: v })}
+                  />
+                  <Slider
+                    label="3D 음향 (가상화)"
+                    valueLabel={`${Math.round((audioSettings.virtualizer / 1000) * 100)}%`}
+                    min={0}
+                    max={1000}
+                    step={50}
+                    value={audioSettings.virtualizer}
+                    onChange={(v) => updateAudioLocal({ virtualizer: v })}
+                    onComplete={(v) => commitAudio({ virtualizer: v })}
+                  />
+                  <Slider
+                    label="라우드니스"
+                    valueLabel={`+${(audioSettings.loudness / 100).toFixed(0)} dB`}
+                    min={0}
+                    max={2000}
+                    step={100}
+                    value={audioSettings.loudness}
+                    onChange={(v) => updateAudioLocal({ loudness: v })}
+                    onComplete={(v) => commitAudio({ loudness: v })}
+                  />
+                </View>
+              )}
+            </ScrollView>
+
+            <PressableScale style={styles.betaCloseBtn} onPress={() => setShowAudioModal(false)} activeScale={0.97}>
+              <Text style={styles.betaCloseBtnText}>완료</Text>
+            </PressableScale>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -641,6 +864,7 @@ const styles = StyleSheet.create({
   updateFill: { height: '100%', borderRadius: 3, backgroundColor: '#00e676' },
   updatePercent: { color: '#00e676', fontSize: 11, fontWeight: '700', marginTop: 6 },
   qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 },
   qualityChip: {
     backgroundColor: '#20242e',
     borderWidth: 1,

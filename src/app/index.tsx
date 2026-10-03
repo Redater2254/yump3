@@ -17,7 +17,8 @@ import { PlayerScreen } from '../components/PlayerScreen';
 import { MyPageScreen } from '../components/MyPageScreen';
 import { MiniPlayer } from '../components/MiniPlayer';
 import { GlobalDownloadIndicator } from '../components/GlobalDownloadIndicator';
-import { setupPlayer, PlayerControls, State } from '../services/player';
+import { setupPlayer, PlayerControls, State, setBitPerfectMode } from '../services/player';
+import { loadAudioSettings, applyAudioSettings } from '../services/audioEffects';
 import Reanimated, { FadeIn, FadeOut, withTiming, withSpring, Easing, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
@@ -124,7 +125,11 @@ export default function Index() {
   }, [tabHistory, activeTab, showExitToast]);
 
   useEffect(() => {
-    setupPlayer();
+    setupPlayer().then(async () => {
+      const settings = await loadAudioSettings();
+      setBitPerfectMode(settings.bitPerfect);
+      await applyAudioSettings(settings);
+    });
     const checkActiveTrackAndRoute = async () => {
       try {
         const activeTrack = await PlayerControls.getCurrentTrack();

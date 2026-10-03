@@ -19,6 +19,16 @@ let isFadingOut = false;
 let fadeInInterval = null;
 let lastTrackBPM = null;
 let rateRampInterval = null;
+// When enabled, playback is left untouched: no fades, no rate ramps, no DSP.
+let bitPerfectMode = false;
+
+export function setBitPerfectMode(value) {
+  bitPerfectMode = !!value;
+}
+
+export function isBitPerfectMode() {
+  return bitPerfectMode;
+}
 
 let sleepTimerId = null;
 let sleepTimerRemaining = 0; // in seconds
@@ -86,7 +96,7 @@ export function startSleepTimer(minutes, onTick) {
     }
     sleepTimerRemaining -= 1;
 
-    if (sleepTimerRemaining <= 10 && sleepTimerRemaining > 0) {
+    if (!bitPerfectMode && sleepTimerRemaining <= 10 && sleepTimerRemaining > 0) {
       try {
         const targetVol = (sleepTimerRemaining / 10.0) * originalUserVolume;
         await TrackPlayer.setVolume(targetVol);
@@ -126,6 +136,7 @@ export function getSleepTimerRemaining() {
 }
 
 function triggerFadeIn() {
+  if (bitPerfectMode) return;
   if (fadeInInterval) clearInterval(fadeInInterval);
   let elapsed = 0;
   const duration = 2500;
@@ -147,6 +158,7 @@ function triggerFadeIn() {
 }
 
 function rampPlaybackRate(startRate) {
+  if (bitPerfectMode) return;
   if (rateRampInterval) clearInterval(rateRampInterval);
   let currentRate = startRate;
   const duration = 15000;
@@ -182,7 +194,7 @@ function startProgressVolumeMonitor() {
       if (state !== State.Playing) return;
 
       const smartTransition = await AsyncStorage.getItem('yump3_beta_smart_transition');
-      if (smartTransition !== 'true') {
+      if (smartTransition !== 'true' || bitPerfectMode) {
         if (isFadingOut) {
           isFadingOut = false;
           await TrackPlayer.setVolume(originalUserVolume);
