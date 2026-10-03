@@ -16,16 +16,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDownload } from '../context/DownloadContext';
 import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
-import { searchTracks, trackThumbUrl } from '../services/ytdlp';
+import { searchArtTracks, searchTracks, trackThumbUrl } from '../services/ytdlp';
 import { getTracks } from '../services/library';
 
 interface SearchResult {
   youtube_id: string;
   title: string;
   artist: string;
+  album?: string | null;
   duration: number;
   thumbnail_url: string;
+  is_topic?: boolean;
+  channel_verified?: boolean;
 }
+
+/** Titles that are clearly not album-art tracks (MVs, lyric/performance videos). */
+const NON_ART_TITLE =
+  /(lyric|lyrics|가사|color\s*coded|뮤직비디오|music\s*video|official\s*video|official\s*mv|\bmv\b|performance|퍼포먼스|choreography|안무|dance\s*practice|reaction|리액션|teaser|티저|interview|인터뷰)/i;
 
 export const SearchScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -39,6 +46,8 @@ export const SearchScreen: React.FC = () => {
   const [loadingDirectAdd, setLoadingDirectAdd] = useState(false);
   
   const [isOfficialOnly, setIsOfficialOnly] = useState(true);
+  const [artChecking, setArtChecking] = useState(false);
+  const [artFound, setArtFound] = useState<number | null>(null);
 
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [libraryIds, setLibraryIds] = useState<Set<string>>(new Set());
@@ -88,26 +97,90 @@ export const SearchScreen: React.FC = () => {
     loadLibraryIds();
   }, []);
 
-  const handleSearch = async (overrideQuery?: string, options?: { dismissKeyboard?: boolean }) => {
+  const searchSeqRef = useRef(0);
+  const artRunningRef = useRef(false);
+  const artPendingRef = useRef<{ query: string; seq: number } | null>(null);
+
+  /**
+   * Deep art-track search: extracts each candidate and keeps only entries with
+   * artist/album/track metadata (see the art-track guide). "Topic" is appended
+   * because YouTube otherwise ranks MVs and lyric videos above art tracks.
+   */
+  const runArtSearch = async (query: string, seq: number) => {
+    artRunningRef.current = true;
+    setArtChecking(true);
+    try {
+      const artQuery = /topic|주제/i.test(query) ? query : `${query} Topic`;
+      const arts = await searchArtTracks(artQuery, 8);
+      if (seq === searchSeqRef.current) {
+        const clean = arts.filter((r: any) => !NON_ART_TITLE.test(r.title || ''));
+        setArtFound(clean.length);
+        if (clean.length > 0) setSearchResults(clean);
+      }
+    } catch (e) {
+      if (seq === searchSeqRef.current) setArtFound(0);
+    } finally {
+      artRunningRef.current = false;
+      setArtChecking(false);
+      const pending = artPendingRef.current;
+      artPendingRef.current = null;
+      if (pending && pending.seq === searchSeqRef.current) {
+        runArtSearch(pending.query, pending.seq);
+      }
+    }
+  };
+
+  const scheduleArtSearch = (query: string, seq: number) => {
+    if (artRunningRef.current) {
+      // yt-dlp extraction is heavy on device: keep only the latest query.
+      artPendingRef.current = { query, seq };
+      return;
+    }
+    runArtSearch(query, seq);
+  };
+
+  const handleSearch = async (
+    overrideQuery?: string,
+    options?: { dismissKeyboard?: boolean; official?: boolean }
+  ) => {
     const query = (overrideQuery ?? searchQuery).trim();
     if (!query) return;
+    const official = options?.official ?? isOfficialOnly;
+    const seq = ++searchSeqRef.current;
     if (options?.dismissKeyboard !== false) Keyboard.dismiss();
     setLoadingSearch(true);
+    setArtFound(null);
     try {
-      const results = await searchTracks(query, isOfficialOnly ? 12 : 10);
+      const results = await searchTracks(query, official ? 12 : 10);
+      if (seq !== searchSeqRef.current) return;
 
-      // "Official audio" heuristic: prefer Topic channels / auto-generated uploads.
+      // Fast heuristic while the deep check runs: verified channels without
+      // MV/lyric markers. The deep result replaces this when it arrives.
       let filtered = results;
-      if (isOfficialOnly) {
-        const official = results.filter((r: any) => r.is_topic === true || r.official === true);
-        if (official.length > 0) filtered = official;
+      if (official) {
+        const clean = results.filter((r: any) => !NON_ART_TITLE.test(r.title || ''));
+        const flatOfficial = clean.filter(
+          (r: any) => r.is_topic === true || r.channel_verified === true
+        );
+        if (flatOfficial.length > 0) filtered = flatOfficial;
       }
       setSearchResults(filtered);
       saveRecentSearch(query);
+      if (official) scheduleArtSearch(query, seq);
     } catch (err: any) {
       showAlert('Search Error', err?.message || 'Search failed');
     } finally {
       setLoadingSearch(false);
+    }
+  };
+
+  const toggleOfficialOnly = () => {
+    const next = !isOfficialOnly;
+    setIsOfficialOnly(next);
+    searchSeqRef.current += 1; // discard in-flight deep results
+    setArtFound(null);
+    if (searchQuery.trim()) {
+      handleSearch(undefined, { official: next, dismissKeyboard: false });
     }
   };
 
@@ -260,7 +333,7 @@ export const SearchScreen: React.FC = () => {
               </Text>
               <PressableScale 
                 style={[styles.officialToggleBtn, isOfficialOnly && styles.officialToggleBtnActive]} 
-                onPress={() => setIsOfficialOnly(!isOfficialOnly)}
+                onPress={toggleOfficialOnly}
                 activeScale={0.92}
               >
                 <Ionicons 
@@ -274,6 +347,23 @@ export const SearchScreen: React.FC = () => {
                 </Text>
               </PressableScale>
             </View>
+
+            {isOfficialOnly && (artChecking || artFound !== null) && (
+              <View style={styles.artStatusRow}>
+                {artChecking ? (
+                  <>
+                    <ActivityIndicator size="small" color={palette.accent} />
+                    <Text style={styles.artStatusText}>아트트랙(공식 음원) 확인 중...</Text>
+                  </>
+                ) : (
+                  <Text style={styles.artStatusText}>
+                    {artFound && artFound > 0
+                      ? `아트트랙 ${artFound}곡을 찾았습니다`
+                      : '아트트랙을 찾지 못해 일반 결과를 표시합니다'}
+                  </Text>
+                )}
+              </View>
+            )}
 
             {loadingSearch ? (
               <View style={styles.loaderContainer}>
@@ -453,6 +543,8 @@ const styles = StyleSheet.create({
   officialToggleTextActive: {
     color: palette.accent,
   },
+  artStatusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 2 },
+  artStatusText: { color: palette.textDim, fontSize: 12, marginLeft: 6 },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',

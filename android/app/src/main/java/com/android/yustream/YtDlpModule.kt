@@ -66,6 +66,35 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         }.start()
     }
 
+    /**
+     * Deep search for album-art ("Topic") tracks. Unlike [search] this extracts
+     * every candidate (slower) and keeps only entries carrying artist/album/track
+     * music metadata, which rules out MVs, lyric videos and covers.
+     * One JSON object per line (--dump-json); note that --dump-single-json
+     * silently ignores --match-filter.
+     */
+    @ReactMethod
+    fun searchArtTracks(query: String, limit: Int, promise: Promise) {
+        Thread {
+            try {
+                ensureInit()
+                val request = YoutubeDLRequest("ytsearch$limit:$query")
+                request.addOption("--dump-json")
+                request.addOption("--skip-download")
+                request.addOption("--no-playlist")
+                request.addOption("--match-filter", "artist & album & track")
+                request.addOption("--force-ipv4")
+                request.addOption("--socket-timeout", "20")
+                request.addOption("--extractor-retries", "3")
+                // Explicit args to disambiguate the two execute() overloads.
+                val response = YoutubeDL.getInstance().execute(request, null, null)
+                promise.resolve(response.out)
+            } catch (e: Exception) {
+                promise.reject("ERR_SEARCH_ART", e.message, e)
+            }
+        }.start()
+    }
+
     /** Download + transcode to mp3 with embedded thumbnail & tags. */
     @ReactMethod
     fun download(url: String, outputDir: String, processId: String, audioQuality: String, promise: Promise) {

@@ -44,15 +44,24 @@ export async function ytSearch(query, limit = 10) {
 
 function mapEntry(entry) {
   const rawArtist = entry.uploader || entry.channel || entry.artist || 'Unknown Artist';
-  const isTopic = / - Topic$/i.test(rawArtist);
-  const artist = isTopic ? rawArtist.slice(0, -8) : rawArtist;
+  const suffixTopic = / - (topic|주제)$/i.test(rawArtist);
+  // Topic/art tracks carry music metadata (artist/album/track); MVs and user
+  // uploads do not. The channel name no longer always ends in " - Topic" in
+  // yt-dlp output, so metadata presence is the reliable signal.
+  const hasMusicMeta = !!(entry.artist && entry.album && entry.track);
+  const isTopic = hasMusicMeta || suffixTopic;
+  const artist =
+    entry.artist || (suffixTopic ? rawArtist.replace(/ - (topic|주제)$/i, '') : rawArtist);
   const fallbackThumb = `https://i.ytimg.com/vi/${entry.id}/hqdefault.jpg`;
   return {
     youtube_id: entry.id,
-    title: entry.title || entry.track || 'Unknown Title',
+    // Prefer the music tag ("Chrome") over the video title ("... Official MV").
+    title: entry.track || entry.title || 'Unknown Title',
     artist,
+    album: entry.album || null,
     // Kept so the "official audio" filter still works after the suffix strip.
     is_topic: isTopic,
+    channel_verified: entry.channel_is_verified === true,
     duration: entry.duration || 0,
     thumbnail_url:
       entry.thumbnail ||
@@ -64,6 +73,30 @@ function mapEntry(entry) {
 /** Search and normalize entries into app track shape. */
 export async function searchTracks(query, limit = 10) {
   const entries = await ytSearch(query, limit);
+  return entries.map(mapEntry);
+}
+
+/**
+ * Deep search for album-art ("Topic") tracks. Unlike [searchTracks] this makes
+ * yt-dlp extract every candidate (slower) and keeps only entries with
+ * artist/album/track metadata, which filters out MVs, lyric videos and covers.
+ * Returns an empty list when the native method is unavailable.
+ */
+export async function searchArtTracks(query, limit = 8) {
+  if (!YtDlp?.searchArtTracks) return [];
+  await initYtDlp();
+  const out = await YtDlp.searchArtTracks(query, limit);
+  const entries = String(out || '')
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch (e) {
+        return null;
+      }
+    })
+    .filter(Boolean);
   return entries.map(mapEntry);
 }
 
