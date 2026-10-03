@@ -1,3 +1,4 @@
+import { palette } from '../theme';
 import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
@@ -107,7 +108,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ onPress }) => {
             accessibilityRole="button"
             accessibilityLabel="Previous track"
           >
-            <Ionicons name="play-back" size={22} color="#ffffff" />
+            <Ionicons name="play-back" size={22} color={palette.text} />
           </PressableScale>
 
           <PressableScale 
@@ -118,9 +119,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ onPress }) => {
             accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
           >
             {isBuffering ? (
-              <ActivityIndicator color="#00e676" size="small" />
+              <ActivityIndicator color={palette.accent} size="small" />
             ) : (
-              <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#ffffff" />
+              <Ionicons name={isPlaying ? "pause" : "play"} size={22} color={palette.text} />
             )}
           </PressableScale>
           
@@ -131,7 +132,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ onPress }) => {
             accessibilityRole="button"
             accessibilityLabel="Next track"
           >
-            <Ionicons name="play-forward" size={22} color="#ffffff" />
+            <Ionicons name="play-forward" size={22} color={palette.text} />
           </PressableScale>
         </View>
 
@@ -151,13 +152,13 @@ const styles = StyleSheet.create({
     left: 14,
     right: 14,
     height: 56,
-    backgroundColor: '#1b1e26', // obsidian black tint
+    backgroundColor: palette.surfaceAlt, // obsidian black tint
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: '#262c3a',
+    borderColor: palette.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -168,8 +169,8 @@ const styles = StyleSheet.create({
   artwork: {
     width: 38,
     height: 38,
-    borderRadius: 4,
-    backgroundColor: '#252a36',
+    borderRadius: 8,
+    backgroundColor: palette.border,
   },
   meta: {
     flex: 1,
@@ -177,13 +178,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '700',
   },
   artist: {
-    color: '#7c8598',
-    fontSize: 11,
+    color: palette.textDim,
+    fontSize: 12,
     marginTop: 2,
   },
   controls: {
@@ -204,6 +205,6 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
   },
 });

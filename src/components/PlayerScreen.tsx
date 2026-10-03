@@ -1,3 +1,4 @@
+import { palette, HIT_SLOP } from '../theme';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
@@ -29,6 +30,12 @@ import { MarqueeText } from './MarqueeText';
 import { TrackArtwork } from './TrackArtwork';
 import { PressableScale } from './ui/PressableScale';
 import { getLikedIds, toggleLike, updateTrackDuration } from '../services/library';
+import {
+  loadAudioSettings,
+  saveAudioSettings,
+  applyAudioSettings,
+} from '../services/audioEffects';
+import { setBitPerfectMode } from '../services/player';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,6 +50,7 @@ export const PlayerScreen: React.FC = () => {
   const [repeatMode, setRepeatMode] = useState<RepeatMode>(PlayerControls.getRepeatMode ? PlayerControls.getRepeatMode() : RepeatMode.Off);
   const [isShuffle, setIsShuffle] = useState(PlayerControls.getShuffleState());
   const [updatingLike, setUpdatingLike] = useState(false);
+  const [bitPerfect, setBitPerfect] = useState(false);
 
   const [queue, setQueue] = useState<any[]>([]);
   const [queueVisible, setQueueVisible] = useState(false);
@@ -201,7 +209,17 @@ export const PlayerScreen: React.FC = () => {
     fetchCurrentTrack();
     getInitialVolume();
     getInitialRepeatMode();
+    loadAudioSettings().then((settings) => setBitPerfect(settings.bitPerfect));
   }, []);
+
+  const handleToggleBitPerfect = async () => {
+    const settings = await loadAudioSettings();
+    const next = { ...settings, bitPerfect: !settings.bitPerfect };
+    setBitPerfect(next.bitPerfect);
+    setBitPerfectMode(next.bitPerfect);
+    await saveAudioSettings(next);
+    await applyAudioSettings(next);
+  };
 
   useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], (event) => {
     if (event.track) {
@@ -339,7 +357,22 @@ export const PlayerScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            <Text style={styles.nowPlayingText}>NOW PLAYING</Text>
+            <View style={styles.topRow}>
+              <Text style={styles.nowPlayingText}>재생 중</Text>
+              <PressableScale
+                style={[styles.bitPerfectChip, bitPerfect && styles.bitPerfectChipActive]}
+                onPress={handleToggleBitPerfect}
+                activeScale={0.95}
+                hitSlop={HIT_SLOP}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: bitPerfect }}
+                accessibilityLabel="원음 모드"
+              >
+                <Text style={[styles.bitPerfectText, bitPerfect && styles.bitPerfectTextActive]}>
+                  원음
+                </Text>
+              </PressableScale>
+            </View>
 
             <GestureDetector gesture={swipeGesture}>
               <View style={[styles.artContainer, { width: artSize, height: artSize }]}>
@@ -369,7 +402,7 @@ export const PlayerScreen: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel="Open play queue"
             >
-              <Ionicons name="list" size={26} color="#7c8598" />
+              <Ionicons name="list" size={26} color={palette.textDim} />
             </PressableScale>
 
             <PressableScale style={styles.likeButton} onPress={handleToggleLike} disabled={updatingLike} activeScale={0.85} accessibilityRole="button" accessibilityLabel={isLiked ? 'Remove from favorites' : 'Add to favorites'}>
@@ -399,7 +432,7 @@ export const PlayerScreen: React.FC = () => {
           </View>
 
           <View style={styles.controlsRow}>
-            <PressableScale onPress={handleToggleShuffle} style={styles.secondaryControl} activeScale={0.85}>
+            <PressableScale onPress={handleToggleShuffle} style={styles.secondaryControl} activeScale={0.85} hitSlop={HIT_SLOP}>
               <Ionicons 
                 name="shuffle" 
                 size={22} 
@@ -408,7 +441,7 @@ export const PlayerScreen: React.FC = () => {
             </PressableScale>
 
             <PressableScale onPress={PlayerControls.skipToPrevious} style={styles.primaryControl} activeScale={0.88}>
-              <Ionicons name="play-back" size={36} color="#ffffff" />
+              <Ionicons name="play-back" size={36} color={palette.text} />
             </PressableScale>
 
             <PressableScale 
@@ -417,22 +450,22 @@ export const PlayerScreen: React.FC = () => {
               activeScale={0.9}
             >
               {isBuffering ? (
-                <ActivityIndicator color="#0a0a0a" size="small" />
+                <ActivityIndicator color={palette.accentInk} size="small" />
               ) : (
                 <Ionicons 
                   name={isPlaying ? "pause" : "play"} 
                   size={38} 
-                  color="#0a0a0a" 
+                  color={palette.accentInk} 
                   style={!isPlaying && { marginLeft: 4 }} 
                 />
               )}
             </PressableScale>
 
             <PressableScale onPress={PlayerControls.skipToNext} style={styles.primaryControl} activeScale={0.88}>
-              <Ionicons name="play-forward" size={36} color="#ffffff" />
+              <Ionicons name="play-forward" size={36} color={palette.text} />
             </PressableScale>
 
-            <PressableScale onPress={handleToggleRepeat} style={styles.secondaryControl} activeScale={0.85}>
+            <PressableScale onPress={handleToggleRepeat} style={styles.secondaryControl} activeScale={0.85} hitSlop={HIT_SLOP}>
               <Ionicons 
                 name={repeatMode === RepeatMode.Track ? "repeat-outline" : "repeat"} 
                 size={22} 
@@ -445,7 +478,7 @@ export const PlayerScreen: React.FC = () => {
           </View>
 
           <View style={styles.volumeContainer}>
-            <Ionicons name="volume-mute" size={18} color="#7c8598" onPress={() => handleVolumeChange(0)} />
+            <Ionicons name="volume-mute" size={18} color={palette.textDim} onPress={() => handleVolumeChange(0)} />
             <View 
               style={styles.volumeBarWrapper} 
               onLayout={(e) => setVolumeBarWidth(e.nativeEvent.layout.width)}
@@ -456,15 +489,15 @@ export const PlayerScreen: React.FC = () => {
                 <View style={[styles.volumeKnob, { left: `${volume * 100}%` }]} />
               </View>
             </View>
-            <Ionicons name="volume-high" size={18} color="#7c8598" onPress={() => handleVolumeChange(1.0)} />
+            <Ionicons name="volume-high" size={18} color={palette.textDim} onPress={() => handleVolumeChange(1.0)} />
           </View>
           </View>
         </ScrollView>
       ) : (
         <View style={styles.noTrackView}>
           <Ionicons name="musical-notes-outline" size={80} color="#202430" />
-          <Text style={styles.noTrackTitle}>No Song Playing</Text>
-          <Text style={styles.noTrackText}>Select a playlist in the library tab to start playback.</Text>
+          <Text style={styles.noTrackTitle}>재생 중인 곡이 없습니다</Text>
+          <Text style={styles.noTrackText}>보관함에서 곡을 선택해 재생하세요.</Text>
         </View>
       )}
 
@@ -485,7 +518,7 @@ export const PlayerScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel="Close queue"
               >
-                <Ionicons name="close" size={22} color="#ffffff" />
+                <Ionicons name="close" size={22} color={palette.text} />
               </PressableScale>
             </View>
             <FlatList
@@ -502,7 +535,7 @@ export const PlayerScreen: React.FC = () => {
                     <Ionicons
                       name={isActive ? 'volume-high' : 'musical-note-outline'}
                       size={16}
-                      color={isActive ? '#00e676' : '#7c8598'}
+                      color={isActive ? palette.accent : palette.textDim}
                     />
                     <View style={styles.queueMeta}>
                       <Text style={[styles.queueRowTitle, isActive && styles.queueRowTitleActive]} numberOfLines={1}>{item.title}</Text>
@@ -525,7 +558,7 @@ export const PlayerScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0c0e12',
+    backgroundColor: palette.bg,
     paddingHorizontal: 28,
   },
   scroll: { flex: 1 },
@@ -534,16 +567,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nowPlayingText: {
-    color: '#00e676',
-    fontWeight: '700',
-    fontSize: 12,
-    letterSpacing: 2,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     marginBottom: 16,
   },
+  nowPlayingText: {
+    color: palette.accent,
+    fontWeight: '700',
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  bitPerfectChip: {
+    borderWidth: 1,
+    borderColor: palette.borderStrong,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  bitPerfectChipActive: {
+    borderColor: palette.accent,
+    backgroundColor: palette.accentWash,
+  },
+  bitPerfectText: { color: palette.textDim, fontSize: 12, fontWeight: '700' },
+  bitPerfectTextActive: { color: palette.accent },
   artContainer: {
     borderRadius: 20,
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
@@ -568,13 +620,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   titleText: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 6,
   },
   artistText: {
-    color: '#707888',
+    color: palette.textMuted,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -591,14 +643,14 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 4,
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     borderRadius: 2,
     width: '100%',
     position: 'relative',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     borderRadius: 2,
     width: '0%',
     zIndex: 1,
@@ -608,7 +660,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     top: -4,
     marginLeft: -6,
     zIndex: 2,
@@ -620,8 +672,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   timeText: {
-    color: '#7c8598',
-    fontSize: 11,
+    color: palette.textDim,
+    fontSize: 12,
     fontWeight: '600',
   },
   controlsRow: {
@@ -639,8 +691,8 @@ const styles = StyleSheet.create({
   },
   repeatBadge: {
     position: 'absolute',
-    color: '#00e676',
-    fontSize: 9,
+    color: palette.accent,
+    fontSize: 12,
     fontWeight: '800',
     top: 2,
     right: 2,
@@ -649,10 +701,10 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#00e676',
+    shadowColor: palette.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -665,12 +717,12 @@ const styles = StyleSheet.create({
   noTrackTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#ffffff',
+    color: palette.text,
     marginTop: 20,
     marginBottom: 8,
   },
   noTrackText: {
-    color: '#7c8598',
+    color: palette.textDim,
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -690,14 +742,14 @@ const styles = StyleSheet.create({
   },
   volumeBarBackground: {
     height: 4,
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     borderRadius: 2,
     width: '100%',
     position: 'relative',
   },
   volumeBarFill: {
     height: '100%',
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     borderRadius: 2,
     zIndex: 1,
   },
@@ -706,7 +758,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     top: -3,
     marginLeft: -5,
     zIndex: 2,
@@ -719,8 +771,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   swipeHint: {
-    color: '#7c8598',
-    fontSize: 11,
+    color: palette.textDim,
+    fontSize: 12,
     opacity: 0.7,
   },
   queueOverlay: {
@@ -729,26 +781,26 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   queueCard: {
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 20,
     paddingHorizontal: 20,
     maxHeight: '75%',
     borderWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
   },
   queueHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
     paddingBottom: 12,
     marginBottom: 8,
   },
   queueTitle: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -762,38 +814,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 8,
     marginBottom: 6,
-    backgroundColor: '#1b1f28',
+    backgroundColor: palette.surfaceAlt,
   },
   queueRowActive: {
-    backgroundColor: '#182220',
+    backgroundColor: palette.accentWash,
     borderWidth: 1,
-    borderColor: '#00e676',
+    borderColor: palette.accent,
   },
   queueMeta: {
     flex: 1,
     marginLeft: 10,
   },
   queueRowTitle: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '700',
   },
   queueRowTitleActive: {
-    color: '#00e676',
+    color: palette.accent,
   },
   queueRowArtist: {
-    color: '#7c8598',
-    fontSize: 11,
+    color: palette.textDim,
+    fontSize: 12,
     marginTop: 2,
   },
   queueNowBadge: {
-    color: '#00e676',
-    fontSize: 10,
+    color: palette.accent,
+    fontSize: 12,
     fontWeight: '800',
     marginLeft: 8,
   },
   queueEmpty: {
-    color: '#7c8598',
+    color: palette.textDim,
     textAlign: 'center',
     marginVertical: 30,
     fontSize: 13,

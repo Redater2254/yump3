@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { PanResponder, StyleSheet, Text, View } from 'react-native';
+import { palette } from '../../theme';
 
 interface Props {
   value: number;
@@ -92,22 +93,22 @@ export const Slider: React.FC<Props> = ({
 const styles = StyleSheet.create({
   wrap: { marginTop: 10 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
-  label: { color: '#b0b8c8', fontSize: 12, fontWeight: '600' },
-  value: { color: '#00e676', fontSize: 12, fontWeight: '700' },
+  label: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
+  value: { color: palette.accent, fontSize: 12, fontWeight: '700' },
   touchArea: { paddingVertical: 12, paddingHorizontal: 6 },
   track: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     position: 'relative',
   },
-  fill: { height: '100%', borderRadius: 2, backgroundColor: '#00e676' },
+  fill: { height: '100%', borderRadius: 2, backgroundColor: palette.accent },
   knob: {
     position: 'absolute',
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     top: -5,
     marginLeft: -7,
     elevation: 2,

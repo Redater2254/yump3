@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import { palette } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import { runYtDlpBootstrap } from '../services/ytdlp';
 import { PressableScale } from './ui/PressableScale';
@@ -71,7 +72,7 @@ export const YtDlpBootstrap: React.FC = () => {
 
   return (
     <Animated.View style={[styles.overlay, { opacity: fade }]}>
-      <Ionicons name="cloud-download-outline" size={56} color="#00e676" />
+      <Ionicons name="cloud-download-outline" size={56} color={palette.accent} />
       <Text style={styles.title}>다운로더 준비</Text>
       <Text style={styles.subtitle}>{message}</Text>
 
@@ -113,26 +114,26 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#0c0e12',
+    backgroundColor: palette.bg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 40,
     zIndex: 100000,
   },
-  title: { color: '#ffffff', fontSize: 20, fontWeight: '800', marginTop: 18, marginBottom: 8 },
-  subtitle: { color: '#7c8598', fontSize: 13, marginBottom: 22, textAlign: 'center' },
+  title: { color: palette.text, fontSize: 20, fontWeight: '800', marginTop: 18, marginBottom: 8 },
+  subtitle: { color: palette.textDim, fontSize: 13, marginBottom: 22, textAlign: 'center' },
   track: {
     width: '100%',
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     overflow: 'hidden',
   },
-  fill: { height: '100%', borderRadius: 3, backgroundColor: '#00e676' },
-  percent: { color: '#00e676', fontSize: 12, fontWeight: '700', marginTop: 10 },
+  fill: { height: '100%', borderRadius: 3, backgroundColor: palette.accent },
+  percent: { color: palette.accent, fontSize: 12, fontWeight: '700', marginTop: 10 },
   detail: {
-    color: '#ff8a80',
-    fontSize: 11,
+    color: palette.dangerSoft,
+    fontSize: 12,
     fontFamily: 'monospace',
     textAlign: 'center',
     marginTop: 16,
@@ -140,19 +141,19 @@ const styles = StyleSheet.create({
   },
   actions: { flexDirection: 'row', marginTop: 26 },
   retryBtn: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     borderRadius: 8,
     paddingVertical: 11,
     paddingHorizontal: 22,
     marginRight: 10,
   },
-  retryText: { color: '#0a0a0a', fontSize: 14, fontWeight: '700' },
+  retryText: { color: palette.accentInk, fontSize: 14, fontWeight: '700' },
   skipBtn: {
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     paddingVertical: 11,
     paddingHorizontal: 22,
   },
-  skipText: { color: '#9098a8', fontSize: 14, fontWeight: '600' },
+  skipText: { color: palette.textMuted, fontSize: 14, fontWeight: '600' },
 });

@@ -1,3 +1,4 @@
+import { palette } from '../theme';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
 import { clearLibrary } from '../services/library';
@@ -48,6 +50,7 @@ const BETA_TRANSITION_KEY = 'yump3_beta_smart_transition';
 const BETA_TIMER_KEY = 'yump3_beta_sleep_timer';
 
 export const MyPageScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { showAlert, showToast } = useAlert();
 
   const [librarySize, setLibrarySize] = useState(0);
@@ -365,56 +368,38 @@ export const MyPageScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 8 }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.mainTitle}>yump3</Text>
 
         {/* Storage */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>저장 공간</Text>
           {loadingStats ? (
-            <ActivityIndicator color="#00e676" style={{ marginVertical: 16 }} />
+            <ActivityIndicator color={palette.accent} style={{ marginVertical: 16 }} />
           ) : (
-            <>
-              <View style={styles.storageRow}>
-                <Text style={styles.storageLabel}>저장된 음악</Text>
-                <Text style={styles.storageValue}>{formatBytes(librarySize)}</Text>
-              </View>
-              <View style={styles.divider} />
-              <PressableScale
-                style={[styles.actionBtn, { borderColor: '#ff1744' }]}
-                onPress={confirmClear}
-                disabled={clearing}
-                activeScale={0.96}
-              >
-                {clearing ? (
-                  <ActivityIndicator color="#ff1744" size="small" />
-                ) : (
-                  <Text style={[styles.actionBtnText, { color: '#ff1744' }]}>모든 음악 삭제</Text>
-                )}
-              </PressableScale>
-            </>
+            <View style={styles.storageRow}>
+              <Text style={styles.storageLabel}>저장된 음악</Text>
+              <Text style={styles.storageValue}>{formatBytes(librarySize)}</Text>
+            </View>
           )}
-        </View>
-
-        {/* Import */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>음악 가져오기</Text>
-          <Text style={styles.cardSub}>
-            PC나 파일 관리자로 옮겨 둔 MP3를 라이브러리에 추가합니다.
-            {'\n'}경로: Android/media/com.yump3/yump3/
-          </Text>
           <PressableScale
-            style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+            style={[styles.actionBtn, { borderColor: palette.accent, marginTop: 16 }]}
             onPress={handleImport}
             disabled={importing}
             activeScale={0.96}
           >
             {importing ? (
-              <ActivityIndicator color="#00e676" size="small" />
+              <ActivityIndicator color={palette.accent} size="small" />
             ) : (
-              <Text style={[styles.actionBtnText, { color: '#00e676' }]}>폴더 스캔해서 가져오기</Text>
+              <Text style={[styles.actionBtnText, { color: palette.accent }]}>음악 가져오기</Text>
             )}
           </PressableScale>
+          <Text style={[styles.cardSub, { marginTop: 8 }]}>
+            파일 관리자로 Android/media/com.yump3/yump3/ 에 옮긴 MP3를 라이브러리에 추가합니다.
+          </Text>
         </View>
 
         {/* Downloader */}
@@ -424,15 +409,15 @@ export const MyPageScreen: React.FC = () => {
             YouTube 추출기(yt-dlp)를 최신 버전으로 유지하면 다운로드가 계속 동작합니다.
           </Text>
           <PressableScale
-            style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+            style={[styles.actionBtn, { borderColor: palette.accent, marginTop: 12 }]}
             onPress={handleUpdateYtDlp}
             disabled={updating}
             activeScale={0.96}
           >
             {updating ? (
-              <ActivityIndicator color="#00e676" size="small" />
+              <ActivityIndicator color={palette.accent} size="small" />
             ) : (
-              <Text style={[styles.actionBtnText, { color: '#00e676' }]}>yt-dlp 업데이트</Text>
+              <Text style={[styles.actionBtnText, { color: palette.accent }]}>yt-dlp 업데이트</Text>
             )}
           </PressableScale>
 
@@ -472,45 +457,45 @@ export const MyPageScreen: React.FC = () => {
                 {Math.round(updateState.progress * 100)}% · 백그라운드 다운로드 중 (알림에서 확인)
               </Text>
               <PressableScale
-                style={[styles.actionBtn, { borderColor: '#2d3342', marginTop: 10 }]}
+                style={[styles.actionBtn, { borderColor: palette.borderStrong, marginTop: 10 }]}
                 onPress={handleCancelUpdate}
                 activeScale={0.96}
               >
-                <Text style={[styles.actionBtnText, { color: '#9098a8' }]}>다운로드 취소</Text>
+                <Text style={[styles.actionBtnText, { color: palette.textMuted }]}>다운로드 취소</Text>
               </PressableScale>
             </View>
           )}
 
           {!!updateState?.error && (
-            <Text style={[styles.cardSub, { color: '#ff8a80', marginTop: 10 }]}>
+            <Text style={[styles.cardSub, { color: palette.dangerSoft, marginTop: 10 }]}>
               다운로드에 실패했습니다. 다시 시도해주세요.
             </Text>
           )}
 
           {updateState?.ready ? (
             <PressableScale
-              style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+              style={[styles.actionBtn, { borderColor: palette.accent, marginTop: 12 }]}
               onPress={handleInstallUpdate}
               disabled={installingUpdate}
               activeScale={0.96}
             >
               {installingUpdate ? (
-                <ActivityIndicator color="#00e676" size="small" />
+                <ActivityIndicator color={palette.accent} size="small" />
               ) : (
-                <Text style={[styles.actionBtnText, { color: '#00e676' }]}>설치하기</Text>
+                <Text style={[styles.actionBtnText, { color: palette.accent }]}>설치하기</Text>
               )}
             </PressableScale>
           ) : !updateActive ? (
             <PressableScale
-              style={[styles.actionBtn, { borderColor: '#00e676', marginTop: 12 }]}
+              style={[styles.actionBtn, { borderColor: palette.accent, marginTop: 12 }]}
               onPress={handleCheckUpdate}
               disabled={checkingUpdate}
               activeScale={0.96}
             >
               {checkingUpdate ? (
-                <ActivityIndicator color="#00e676" size="small" />
+                <ActivityIndicator color={palette.accent} size="small" />
               ) : (
-                <Text style={[styles.actionBtnText, { color: '#00e676' }]}>업데이트 확인</Text>
+                <Text style={[styles.actionBtnText, { color: palette.accent }]}>업데이트 확인</Text>
               )}
             </PressableScale>
           ) : null}
@@ -524,14 +509,14 @@ export const MyPageScreen: React.FC = () => {
         >
           <View style={styles.betaRowLeft}>
             <View style={styles.betaFlask}>
-              <Ionicons name="options-outline" size={20} color="#00e676" />
+              <Ionicons name="options-outline" size={20} color={palette.accent} />
             </View>
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.betaRowTitle}>오디오</Text>
               <Text style={styles.betaRowSub}>이퀄라이저 · 3D 음향 · 원음 모드</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#7c8598" />
+          <Ionicons name="chevron-forward" size={18} color={palette.textDim} />
         </PressableScale>
 
         {/* Beta lab */}
@@ -542,17 +527,44 @@ export const MyPageScreen: React.FC = () => {
         >
           <View style={styles.betaRowLeft}>
             <View style={styles.betaFlask}>
-              <Ionicons name="flask-outline" size={20} color="#00e676" />
+              <Ionicons name="flask-outline" size={20} color={palette.accent} />
             </View>
             <View style={{ marginLeft: 12 }}>
-              <Text style={styles.betaRowTitle}>Beta 연구소</Text>
-              <Text style={styles.betaRowSub}>실험적인 기능들을 사용해보세요.</Text>
+              <Text style={styles.betaRowTitle}>재생</Text>
+              <Text style={styles.betaRowSub}>스마트 트랜지션 · 취침 타이머 · 진동 · 원음 모드</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#7c8598" />
+          <Ionicons name="chevron-forward" size={18} color={palette.textDim} />
         </PressableScale>
 
-        <Text style={styles.footerVersion}>yump3 v1.0.0 · GPL-3.0</Text>
+        {/* Danger zone */}
+        <View style={[styles.card, { borderColor: 'rgba(255, 59, 48, 0.35)' }]}>
+          <Text style={[styles.cardTitle, { color: palette.danger }]}>데이터 관리</Text>
+          <Text style={styles.cardSub}>
+            기기에 저장된 모든 곡과 플레이리스트를 삭제합니다. 되돌릴 수 없습니다.
+          </Text>
+          <PressableScale
+            style={[
+              styles.actionBtn,
+              {
+                borderColor: palette.danger,
+                backgroundColor: 'rgba(255, 59, 48, 0.08)',
+                marginTop: 12,
+              },
+            ]}
+            onPress={confirmClear}
+            disabled={clearing}
+            activeScale={0.96}
+          >
+            {clearing ? (
+              <ActivityIndicator color={palette.danger} size="small" />
+            ) : (
+              <Text style={[styles.actionBtnText, { color: palette.danger }]}>모든 음악 삭제</Text>
+            )}
+          </PressableScale>
+        </View>
+
+        <Text style={styles.footerVersion}>yump3 v{appVersion} · GPL-3.0</Text>
       </ScrollView>
 
       {/* Beta modal */}
@@ -566,18 +578,35 @@ export const MyPageScreen: React.FC = () => {
           <View style={styles.betaModalCard}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="flask" size={22} color="#00e676" style={{ marginRight: 8 }} />
-                <Text style={styles.modalTitle}>yump3 Beta 연구소</Text>
+                <Ionicons name="flask" size={22} color={palette.accent} style={{ marginRight: 8 }} />
+                <Text style={styles.modalTitle}>재생</Text>
               </View>
               <PressableScale onPress={() => setShowBetaModal(false)} activeScale={0.8}>
-                <Ionicons name="close" size={24} color="#ffffff" />
+                <Ionicons name="close" size={24} color={palette.text} />
               </PressableScale>
             </View>
 
             <ScrollView contentContainerStyle={styles.betaModalContent}>
               <Text style={styles.betaWelcome}>
-                개발 중인 기능입니다. 일부는 불안정할 수 있습니다.
+                재생 동작과 실험적인 기능을 설정합니다.
               </Text>
+
+              <View style={styles.betaSettingRow}>
+                <View style={{ flex: 1, paddingRight: 15 }}>
+                  <Text style={styles.betaSettingTitle}>원음 모드 (비트퍼펙트 지향)</Text>
+                  <Text style={styles.betaSettingDesc}>
+                    페이드·속도 램프·DSP를 끄고 원음 그대로 재생합니다.
+                  </Text>
+                </View>
+                <PressableScale
+                  style={[styles.toggleBtn, audioSettings.bitPerfect ? styles.toggleOn : styles.toggleOff]}
+                  onPress={() => commitAudio({ bitPerfect: !audioSettings.bitPerfect })}
+                >
+                  <View style={[styles.toggleDot, audioSettings.bitPerfect ? styles.dotOn : styles.dotOff]} />
+                </PressableScale>
+              </View>
+
+              <View style={styles.betaDivider} />
 
               <View style={styles.betaSettingRow}>
                 <View style={{ flex: 1, paddingRight: 15 }}>
@@ -681,11 +710,11 @@ export const MyPageScreen: React.FC = () => {
           <View style={styles.betaModalCard}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="options" size={22} color="#00e676" style={{ marginRight: 8 }} />
+                <Ionicons name="options" size={22} color={palette.accent} style={{ marginRight: 8 }} />
                 <Text style={styles.modalTitle}>오디오</Text>
               </View>
               <PressableScale onPress={() => setShowAudioModal(false)} activeScale={0.8}>
-                <Ionicons name="close" size={24} color="#ffffff" />
+                <Ionicons name="close" size={24} color={palette.text} />
               </PressableScale>
             </View>
 
@@ -695,23 +724,6 @@ export const MyPageScreen: React.FC = () => {
                   이 기기에서는 이퀄라이저/3D 효과를 지원하지 않습니다. 원음 모드는 사용할 수 있습니다.
                 </Text>
               )}
-
-              <View style={styles.betaSettingRow}>
-                <View style={{ flex: 1, paddingRight: 15 }}>
-                  <Text style={styles.betaSettingTitle}>원음 모드 (비트퍼펙트 지향)</Text>
-                  <Text style={styles.betaSettingDesc}>
-                    페이드·속도 램프·DSP를 끄고 원음 그대로 재생합니다.
-                  </Text>
-                </View>
-                <PressableScale
-                  style={[styles.toggleBtn, audioSettings.bitPerfect ? styles.toggleOn : styles.toggleOff]}
-                  onPress={() => commitAudio({ bitPerfect: !audioSettings.bitPerfect })}
-                >
-                  <View style={[styles.toggleDot, audioSettings.bitPerfect ? styles.dotOn : styles.dotOff]} />
-                </PressableScale>
-              </View>
-
-              <View style={styles.betaDivider} />
 
               <View style={styles.betaSettingRow}>
                 <View style={{ flex: 1, paddingRight: 15 }}>
@@ -830,23 +842,23 @@ export const MyPageScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0c0e12' },
-  scrollContent: { flexGrow: 1, padding: 20, paddingTop: 50, paddingBottom: 100 },
-  mainTitle: { fontSize: 26, fontWeight: '900', color: '#ffffff', marginBottom: 20 },
+  container: { flex: 1, backgroundColor: palette.bg },
+  scrollContent: { flexGrow: 1, padding: 20, paddingBottom: 100 },
+  mainTitle: { fontSize: 26, fontWeight: '900', color: palette.text, marginBottom: 20 },
   card: {
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
     marginBottom: 20,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#ffffff', marginBottom: 10 },
-  cardSub: { color: '#7c8598', fontSize: 12, lineHeight: 17 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: palette.text, marginBottom: 10 },
+  cardSub: { color: palette.textDim, fontSize: 12, lineHeight: 17 },
   storageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  storageLabel: { color: '#9098a8', fontSize: 13 },
-  storageValue: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
-  divider: { height: 1, backgroundColor: '#20242e', marginVertical: 16 },
+  storageLabel: { color: palette.textMuted, fontSize: 13 },
+  storageValue: { color: palette.text, fontSize: 14, fontWeight: '700' },
+  divider: { height: 1, backgroundColor: palette.border, marginVertical: 16 },
   actionBtn: {
     borderWidth: 1,
     borderRadius: 8,
@@ -858,26 +870,26 @@ const styles = StyleSheet.create({
   updateTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     overflow: 'hidden',
   },
-  updateFill: { height: '100%', borderRadius: 3, backgroundColor: '#00e676' },
-  updatePercent: { color: '#00e676', fontSize: 11, fontWeight: '700', marginTop: 6 },
+  updateFill: { height: '100%', borderRadius: 3, backgroundColor: palette.accent },
+  updatePercent: { color: palette.accent, fontSize: 12, fontWeight: '700', marginTop: 6 },
   qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 },
   qualityChip: {
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
     borderRadius: 8,
-    paddingVertical: 7,
+    paddingVertical: 10,
     paddingHorizontal: 12,
   },
-  qualityChipActive: { backgroundColor: 'rgba(0, 230, 118, 0.12)', borderColor: '#00e676' },
-  qualityChipText: { color: '#9098a8', fontSize: 12, fontWeight: '600' },
-  qualityChipTextActive: { color: '#00e676' },
+  qualityChipActive: { backgroundColor: 'rgba(0, 230, 118, 0.12)', borderColor: palette.accent },
+  qualityChipText: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
+  qualityChipTextActive: { color: palette.accent },
   betaRow: {
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
@@ -891,23 +903,23 @@ const styles = StyleSheet.create({
   betaFlask: {
     width: 38,
     height: 38,
-    borderRadius: 10,
+    borderRadius: 8,
     backgroundColor: 'rgba(0, 230, 118, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  betaRowTitle: { color: '#00e676', fontSize: 15, fontWeight: '700', marginBottom: 2 },
-  betaRowSub: { color: '#7c8598', fontSize: 11 },
-  footerVersion: { textAlign: 'center', color: '#7c8598', fontSize: 11, marginTop: 10 },
+  betaRowTitle: { color: palette.accent, fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  betaRowSub: { color: palette.textDim, fontSize: 12 },
+  footerVersion: { textAlign: 'center', color: palette.textDim, fontSize: 12, marginTop: 10 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   betaModalCard: {
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     maxHeight: '82%',
     borderWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
     borderBottomWidth: 0,
   },
   modalHeader: {
@@ -917,62 +929,62 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#ffffff' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: palette.text },
   betaModalContent: { paddingBottom: 20 },
   betaWelcome: {
-    color: '#9098a8',
+    color: palette.textMuted,
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 24,
-    backgroundColor: '#1b1f28',
+    backgroundColor: palette.surfaceAlt,
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#242a38',
+    borderColor: palette.border,
   },
   betaSettingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  betaSettingTitle: { color: '#ffffff', fontSize: 14, fontWeight: '700', marginBottom: 4 },
-  betaSettingDesc: { color: '#7c8598', fontSize: 11, lineHeight: 15 },
-  betaDivider: { height: 1, backgroundColor: '#20242e', marginVertical: 18 },
+  betaSettingTitle: { color: palette.text, fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  betaSettingDesc: { color: palette.textDim, fontSize: 12, lineHeight: 15 },
+  betaDivider: { height: 1, backgroundColor: palette.border, marginVertical: 18 },
   toggleBtn: { width: 44, height: 24, borderRadius: 12, padding: 2, justifyContent: 'center' },
-  toggleOn: { backgroundColor: '#00e676' },
-  toggleOff: { backgroundColor: '#3a3f50' },
-  toggleDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#ffffff' },
+  toggleOn: { backgroundColor: palette.accent },
+  toggleOff: { backgroundColor: palette.borderStrong },
+  toggleDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: palette.text },
   dotOn: { alignSelf: 'flex-end' },
   dotOff: { alignSelf: 'flex-start' },
   timerSection: {
-    backgroundColor: '#1b1f28',
-    borderRadius: 10,
+    backgroundColor: palette.surfaceAlt,
+    borderRadius: 8,
     padding: 12,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#242a38',
+    borderColor: palette.border,
   },
-  timerLabel: { color: '#00e676', fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  timerLabel: { color: palette.accent, fontSize: 12, fontWeight: '700', marginBottom: 8 },
   timerChipRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   timerChip: {
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 8,
     marginRight: 8,
     marginBottom: 6,
   },
-  timerChipActive: { backgroundColor: 'rgba(0, 230, 118, 0.1)', borderColor: '#00e676' },
+  timerChipActive: { backgroundColor: 'rgba(0, 230, 118, 0.1)', borderColor: palette.accent },
   timerChipCancel: { backgroundColor: '#3d121a', borderColor: '#6b1b29' },
-  timerChipText: { color: '#9098a8', fontSize: 12, fontWeight: '600' },
-  timerChipTextActive: { color: '#00e676' },
-  timerChipTextCancel: { color: '#ff1744', fontSize: 12, fontWeight: '600' },
+  timerChipText: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
+  timerChipTextActive: { color: palette.accent },
+  timerChipTextCancel: { color: palette.danger, fontSize: 12, fontWeight: '600' },
   betaCloseBtn: {
-    backgroundColor: '#00e676',
-    borderRadius: 10,
+    backgroundColor: palette.accent,
+    borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 10,
   },
-  betaCloseBtnText: { color: '#0a0a0a', fontSize: 15, fontWeight: '700' },
+  betaCloseBtnText: { color: palette.accentInk, fontSize: 15, fontWeight: '700' },
 });

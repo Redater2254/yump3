@@ -1,3 +1,4 @@
+import { palette, HIT_SLOP } from '../theme';
 import React, { useState } from 'react';
 import { 
   StyleSheet, 
@@ -38,13 +39,13 @@ export const GlobalDownloadIndicator: React.FC = () => {
       {expanded && (
         <View style={styles.panel}>
           <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>Download Status</Text>
+            <Text style={styles.panelTitle}>다운로드</Text>
             <View style={styles.headerActions}>
-              <PressableScale onPress={clearDownloads} style={styles.clearBtn} activeScale={0.9}>
-                <Text style={styles.clearBtnText}>Clear All</Text>
+              <PressableScale onPress={clearDownloads} style={styles.clearBtn} activeScale={0.9} hitSlop={HIT_SLOP}>
+                <Text style={styles.clearBtnText}>모두 지우기</Text>
               </PressableScale>
-              <PressableScale onPress={() => setExpanded(false)} style={styles.closeBtn} activeScale={0.8}>
-                <Ionicons name="close" size={16} color="#7c8598" />
+              <PressableScale onPress={() => setExpanded(false)} style={styles.closeBtn} activeScale={0.8} hitSlop={HIT_SLOP}>
+                <Ionicons name="close" size={16} color={palette.textDim} />
               </PressableScale>
             </View>
           </View>
@@ -78,36 +79,38 @@ export const GlobalDownloadIndicator: React.FC = () => {
                 <View style={styles.taskStatus}>
                   {item.status === 'downloading' && (
                     <View style={styles.statusBadgeDownloading}>
-                      <ActivityIndicator color="#00e676" size="small" style={{ marginRight: 4 }} />
-                      <Text style={styles.statusTextDownloading}>Saving</Text>
+                      <ActivityIndicator color={palette.accent} size="small" style={{ marginRight: 4 }} />
+                      <Text style={styles.statusTextDownloading}>저장 중</Text>
                     </View>
                   )}
                   {item.status === 'completed' && (
                     <View style={styles.statusBadgeCompleted}>
-                      <Ionicons name="checkmark-circle" size={14} color="#00e676" style={{ marginRight: 2 }} />
-                      <Text style={styles.statusTextCompleted}>Saved</Text>
+                      <Ionicons name="checkmark-circle" size={14} color={palette.accent} style={{ marginRight: 2 }} />
+                      <Text style={styles.statusTextCompleted}>저장됨</Text>
                     </View>
                   )}
                   {item.status === 'failed' && (
                     <View style={styles.failedActions}>
                       <PressableScale
                         style={styles.retryBtn}
+                        hitSlop={HIT_SLOP}
                         onPress={() => retryDownload(item.id)}
                         activeScale={0.85}
                         accessibilityRole="button"
                         accessibilityLabel={`Retry download of ${item.title}`}
                       >
-                        <Ionicons name="refresh" size={14} color="#00e676" />
-                        <Text style={styles.retryText}>Retry</Text>
+                        <Ionicons name="refresh" size={14} color={palette.accent} />
+                        <Text style={styles.retryText}>재시도</Text>
                       </PressableScale>
                       <PressableScale
                         style={styles.dismissBtn}
+                        hitSlop={HIT_SLOP}
                         onPress={() => dismissTask(item.id)}
                         activeScale={0.85}
                         accessibilityRole="button"
                         accessibilityLabel={`Dismiss failed download ${item.title}`}
                       >
-                        <Ionicons name="close" size={14} color="#ff5252" />
+                        <Ionicons name="close" size={14} color={palette.danger} />
                       </PressableScale>
                     </View>
                   )}
@@ -127,7 +130,7 @@ export const GlobalDownloadIndicator: React.FC = () => {
         activeScale={0.96}
         onPress={() => setExpanded(!expanded)}
         accessibilityRole="button"
-        accessibilityLabel={isDownloadingAny ? `Downloading ${activeCount} items` : 'Downloads'}
+        accessibilityLabel={isDownloadingAny ? `Downloading ${activeCount} items` : '다운로드'}
       >
         <Ionicons 
           name={isDownloadingAny ? "cloud-download" : "cloud-done"} 
@@ -135,7 +138,7 @@ export const GlobalDownloadIndicator: React.FC = () => {
           color={isDownloadingAny ? "#00e676" : "#7c8598"} 
         />
         <Text style={[styles.badgeText, isDownloadingAny && styles.badgeTextActive]}>
-          {isDownloadingAny ? `Downloading (${activeCount})` : 'Downloads'}
+          {isDownloadingAny ? `Downloading (${activeCount})` : '다운로드'}
         </Text>
       </PressableScale>
     </View>
@@ -153,8 +156,8 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1b1e26',
-    borderColor: '#262c3a',
+    backgroundColor: palette.surfaceAlt,
+    borderColor: palette.border,
     borderWidth: 1.5,
     borderRadius: 20,
     paddingVertical: 8,
@@ -166,24 +169,24 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   badgeActive: {
-    borderColor: '#00e676',
-    shadowColor: '#00e676',
+    borderColor: palette.accent,
+    shadowColor: palette.accent,
     shadowOpacity: 0.4,
     shadowRadius: 6,
   },
   badgeText: {
-    color: '#7c8598',
+    color: palette.textDim,
     fontSize: 12,
     fontWeight: '700',
     marginLeft: 6,
   },
   badgeTextActive: {
-    color: '#00e676',
+    color: palette.accent,
   },
   panel: {
     width: 280,
-    backgroundColor: '#161920',
-    borderColor: '#252a36',
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
@@ -199,12 +202,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
     paddingBottom: 8,
     marginBottom: 8,
   },
   panelTitle: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -216,12 +219,12 @@ const styles = StyleSheet.create({
   clearBtn: {
     paddingVertical: 2,
     paddingHorizontal: 8,
-    backgroundColor: '#20242e',
-    borderRadius: 4,
+    backgroundColor: palette.border,
+    borderRadius: 8,
   },
   clearBtnText: {
-    color: '#7c8598',
-    fontSize: 10,
+    color: palette.textDim,
+    fontSize: 12,
     fontWeight: '600',
   },
   closeBtn: {
@@ -236,25 +239,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
   },
   taskMeta: {
     flex: 1,
     marginRight: 10,
   },
   taskTitle: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 12,
     fontWeight: '700',
   },
   taskArtist: {
-    color: '#7c8598',
-    fontSize: 10,
+    color: palette.textDim,
+    fontSize: 12,
     marginTop: 2,
   },
   taskError: {
-    color: '#ff8a80',
-    fontSize: 9,
+    color: palette.dangerSoft,
+    fontSize: 12,
     marginTop: 2,
   },
   taskStatus: {
@@ -272,13 +275,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 230, 118, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(0, 230, 118, 0.4)',
-    borderRadius: 4,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   retryText: {
-    color: '#00e676',
-    fontSize: 10,
+    color: palette.accent,
+    fontSize: 12,
     fontWeight: '700',
     marginLeft: 3,
   },
@@ -291,11 +294,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 230, 118, 0.08)',
     paddingHorizontal: 6,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: 8,
   },
   statusTextDownloading: {
-    color: '#00e676',
-    fontSize: 10,
+    color: palette.accent,
+    fontSize: 12,
     fontWeight: '700',
   },
   statusBadgeCompleted: {
@@ -304,11 +307,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 230, 118, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: 8,
   },
   statusTextCompleted: {
-    color: '#00e676',
-    fontSize: 10,
+    color: palette.accent,
+    fontSize: 12,
     fontWeight: '700',
   },
 });

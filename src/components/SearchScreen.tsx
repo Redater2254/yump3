@@ -1,3 +1,4 @@
+import { palette, HIT_SLOP } from '../theme';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDownload } from '../context/DownloadContext';
 import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
@@ -26,6 +28,7 @@ interface SearchResult {
 }
 
 export const SearchScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { downloadTasks, triggerDownload, handleDirectAdd } = useDownload();
   const { showAlert: showCustomAlert, showToast } = useAlert();
   const [directUrl, setDirectUrl] = useState('');
@@ -168,7 +171,7 @@ export const SearchScreen: React.FC = () => {
             <Text style={styles.trackDuration}>{formatDuration(item.duration)}</Text>
             {inLibrary && (
               <View style={styles.inLibraryBadge}>
-                <Ionicons name="checkmark-circle" size={11} color="#00e676" />
+                <Ionicons name="checkmark-circle" size={11} color={palette.accent} />
                 <Text style={styles.inLibraryText}>보관됨</Text>
               </View>
             )}
@@ -179,16 +182,17 @@ export const SearchScreen: React.FC = () => {
           onPress={() => triggerDownload({ youtube_id: item.youtube_id, title: item.title, artist: item.artist })}
           disabled={isDownloading}
           activeScale={0.82}
+          hitSlop={HIT_SLOP}
           accessibilityRole="button"
           accessibilityLabel={inLibrary ? `${item.title} already in library` : `Download ${item.title}`}
         >
           {isDownloading ? (
-            <ActivityIndicator color="#00e676" size="small" />
+            <ActivityIndicator color={palette.accent} size="small" />
           ) : (
             <Ionicons
               name={inLibrary ? "checkmark-circle-outline" : "cloud-download-outline"}
               size={24}
-              color="#00e676"
+              color={palette.accent}
             />
           )}
         </PressableScale>
@@ -197,7 +201,7 @@ export const SearchScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.logoText}>yum<Text style={styles.accentText}>p3</Text></Text>
@@ -207,7 +211,7 @@ export const SearchScreen: React.FC = () => {
 
       <View style={styles.content}>
           <View style={styles.directAddContainer}>
-            <Text style={styles.sectionTitle}>Quick Download Link</Text>
+            <Text style={styles.sectionTitle}>빠른 다운로드</Text>
             <Text style={styles.sectionHint}>
               영상 1개 또는 재생목록(최대 100곡) URL을 붙여넣으세요
             </Text>
@@ -215,7 +219,7 @@ export const SearchScreen: React.FC = () => {
               <TextInput
                 style={styles.directInput}
                 placeholder="YouTube 영상/재생목록 URL 또는 ID"
-                placeholderTextColor="#666"
+                placeholderTextColor={palette.textDim}
                 value={directUrl}
                 onChangeText={setDirectUrl}
                 autoCapitalize="none"
@@ -228,28 +232,28 @@ export const SearchScreen: React.FC = () => {
                 activeScale={0.9}
               >
                 {loadingDirectAdd ? (
-                  <ActivityIndicator color="#0a0a0a" size="small" />
+                  <ActivityIndicator color={palette.accentInk} size="small" />
                 ) : (
-                  <Ionicons name="add" size={24} color="#0a0a0a" />
+                  <Ionicons name="add" size={24} color={palette.accentInk} />
                 )}
               </PressableScale>
             </View>
           </View>
 
           <View style={styles.searchContainer}>
-            <Text style={styles.sectionTitle}>Search Official Audio</Text>
+            <Text style={styles.sectionTitle}>공식 음원 검색</Text>
             <View style={styles.searchBar}>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search songs, artists..."
-                placeholderTextColor="#666"
+                placeholderTextColor={palette.textDim}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 onSubmitEditing={() => handleSearch()}
                 returnKeyType="search"
               />
-              <PressableScale style={styles.searchButton} onPress={() => handleSearch()} activeScale={0.82}>
-                <Ionicons name="search" size={22} color="#00e676" />
+              <PressableScale style={styles.searchButton} onPress={() => handleSearch()} activeScale={0.82} hitSlop={HIT_SLOP}>
+                <Ionicons name="search" size={22} color={palette.accent} />
               </PressableScale>
             </View>
             <View style={styles.filterOptionsRow}>
@@ -275,8 +279,8 @@ export const SearchScreen: React.FC = () => {
 
             {loadingSearch ? (
               <View style={styles.loaderContainer}>
-                <ActivityIndicator color="#00e676" size="large" />
-                <Text style={styles.loaderText}>Searching YouTube...</Text>
+                <ActivityIndicator color={palette.accent} size="large" />
+                <Text style={styles.loaderText}>YouTube 검색 중...</Text>
               </View>
             ) : (
               <FlatList
@@ -287,7 +291,7 @@ export const SearchScreen: React.FC = () => {
                 keyboardShouldPersistTaps="handled"
                 ListEmptyComponent={
                   searchQuery && !loadingSearch ? (
-                    <Text style={styles.emptyText}>No verified Official Audio tracks found.</Text>
+                    <Text style={styles.emptyText}>검색 결과가 없습니다.</Text>
                   ) : recentSearches.length > 0 ? (
                     <View style={styles.recentContainer}>
                       <View style={styles.recentHeader}>
@@ -304,7 +308,7 @@ export const SearchScreen: React.FC = () => {
                             onPress={() => { setSearchQuery(q); handleSearch(q); }}
                             activeScale={0.95}
                           >
-                            <Ionicons name="time-outline" size={13} color="#7c8598" />
+                            <Ionicons name="time-outline" size={13} color={palette.textDim} />
                             <Text style={styles.recentChipText} numberOfLines={1}>{q}</Text>
                           </PressableScale>
                         ))}
@@ -312,9 +316,9 @@ export const SearchScreen: React.FC = () => {
                     </View>
                   ) : (
                     <View style={styles.welcomeInfo}>
-                      <Ionicons name="musical-notes-outline" size={48} color="#2d3342" />
-                      <Text style={styles.welcomeTitle}>Find Private Music</Text>
-                      <Text style={styles.welcomeText}>Search and download audio files directly onto your device.</Text>
+                      <Ionicons name="musical-notes-outline" size={48} color={palette.borderStrong} />
+                      <Text style={styles.welcomeTitle}>음악 검색</Text>
+                      <Text style={styles.welcomeText}>기기에 바로 저장하고 재생하세요.</Text>
                     </View>
                   )
                 }
@@ -329,9 +333,8 @@ export const SearchScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0c0e12',
+    backgroundColor: palette.bg,
     paddingHorizontal: 20,
-    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',
@@ -345,14 +348,14 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#ffffff',
+    color: palette.text,
   },
   accentText: {
-    color: '#00e676',
+    color: palette.accent,
   },
   serverInfo: {
-    fontSize: 10,
-    color: '#7c8598',
+    fontSize: 12,
+    color: palette.textDim,
     marginTop: 2,
     maxWidth: 200,
   },
@@ -365,12 +368,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: palette.text,
     marginBottom: 12,
   },
   sectionHint: {
-    color: '#707888',
-    fontSize: 11,
+    color: palette.textMuted,
+    fontSize: 12,
     marginTop: -6,
     marginBottom: 10,
   },
@@ -379,10 +382,10 @@ const styles = StyleSheet.create({
   },
   directInput: {
     flex: 1,
-    backgroundColor: '#161920',
-    color: '#ffffff',
+    backgroundColor: palette.surface,
+    color: palette.text,
     borderWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
     paddingHorizontal: 14,
@@ -390,7 +393,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   directAddButton: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     borderTopRightRadius: 8,
     borderBottomRightRadius: 8,
     justifyContent: 'center',
@@ -402,16 +405,16 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     flexDirection: 'row',
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
     alignItems: 'center',
     paddingHorizontal: 14,
   },
   searchInput: {
     flex: 1,
-    color: '#ffffff',
+    color: palette.text,
     paddingVertical: 12,
     fontSize: 15,
   },
@@ -426,31 +429,31 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   filterHint: {
-    color: '#707888',
-    fontSize: 11,
+    color: palette.textMuted,
+    fontSize: 12,
     flex: 1,
     marginRight: 10,
   },
   officialToggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#252a36',
-    borderRadius: 6,
+    borderColor: palette.border,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   officialToggleBtnActive: {
-    borderColor: '#00e676',
+    borderColor: palette.accent,
   },
   officialToggleText: {
-    color: '#707888',
-    fontSize: 10,
+    color: palette.textMuted,
+    fontSize: 12,
     fontWeight: '600',
   },
   officialToggleTextActive: {
-    color: '#00e676',
+    color: palette.accent,
   },
   loaderContainer: {
     flex: 1,
@@ -458,29 +461,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loaderText: {
-    color: '#707888',
+    color: palette.textMuted,
     marginTop: 10,
     fontSize: 14,
     textAlign: 'center',
   },
   listContent: {
-    paddingBottom: 80,
+    // mini player (60..116) + download pill (130) stack above the tab bar
+    paddingBottom: 150,
   },
   trackCard: {
     flexDirection: 'row',
-    backgroundColor: '#161920',
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    borderRadius: 8,
     padding: 12,
     marginBottom: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1d212b',
+    borderColor: palette.border,
   },
   thumbnail: {
     width: 60,
     height: 60,
-    borderRadius: 6,
-    backgroundColor: '#252a36',
+    borderRadius: 8,
+    backgroundColor: palette.border,
   },
   trackInfo: {
     flex: 1,
@@ -488,25 +492,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trackTitle: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 4,
   },
   trackArtist: {
-    color: '#707888',
+    color: palette.textMuted,
     fontSize: 12,
     marginBottom: 4,
   },
   trackDuration: {
-    color: '#6b7488',
-    fontSize: 10,
+    color: palette.textMuted,
+    fontSize: 12,
   },
   addButton: {
     padding: 8,
   },
   emptyText: {
-    color: '#707888',
+    color: palette.textMuted,
     textAlign: 'center',
     marginTop: 40,
     fontSize: 14,
@@ -519,12 +523,12 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#b0b8c8',
+    color: palette.textMuted,
     marginTop: 16,
     marginBottom: 8,
   },
   welcomeText: {
-    color: '#7c8598',
+    color: palette.textDim,
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -538,14 +542,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 230, 118, 0.1)',
-    borderRadius: 4,
+    borderRadius: 8,
     paddingHorizontal: 5,
     paddingVertical: 1,
     gap: 3,
   },
   inLibraryText: {
-    color: '#00e676',
-    fontSize: 9,
+    color: palette.accent,
+    fontSize: 12,
     fontWeight: '700',
   },
   recentContainer: {
@@ -558,12 +562,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   recentTitle: {
-    color: '#b0b8c8',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
   recentClear: {
-    color: '#7c8598',
+    color: palette.textDim,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -575,16 +579,16 @@ const styles = StyleSheet.create({
   recentChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 7,
     maxWidth: '100%',
   },
   recentChipText: {
-    color: '#b0b8c8',
+    color: palette.textMuted,
     fontSize: 12,
     marginLeft: 6,
     maxWidth: 180,

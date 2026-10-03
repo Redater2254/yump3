@@ -1,3 +1,4 @@
+import { palette } from '../theme';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -189,7 +190,7 @@ export default function Index() {
 
   return (
     <View style={styles.appContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#0c0e12" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.bg} />
 
       <View style={styles.tabContentContainer}>{renderActiveTabContent()}</View>
 
@@ -203,45 +204,45 @@ export default function Index() {
           style={styles.tabItem}
           onPress={() => setActiveTab('search')}
           accessibilityRole="tab"
-          accessibilityLabel="Search"
+          accessibilityLabel="검색"
           accessibilityState={{ selected: activeTab === 'search' }}
         >
           <Ionicons
             name={activeTab === 'search' ? 'search' : 'search-outline'}
             size={22}
-            color={activeTab === 'search' ? '#00e676' : '#7c8598'}
+            color={activeTab === 'search' ? palette.accent : palette.textDim}
           />
-          <Text style={[styles.tabLabel, activeTab === 'search' && styles.tabLabelActive]}>Search</Text>
+          <Text style={[styles.tabLabel, activeTab === 'search' && styles.tabLabelActive]}>검색</Text>
         </PressableScale>
 
         <PressableScale
           style={styles.tabItem}
           onPress={() => setActiveTab('library')}
           accessibilityRole="tab"
-          accessibilityLabel="Library"
+          accessibilityLabel="보관함"
           accessibilityState={{ selected: activeTab === 'library' }}
         >
           <Ionicons
             name={activeTab === 'library' ? 'musical-notes' : 'musical-notes-outline'}
             size={22}
-            color={activeTab === 'library' ? '#00e676' : '#7c8598'}
+            color={activeTab === 'library' ? palette.accent : palette.textDim}
           />
-          <Text style={[styles.tabLabel, activeTab === 'library' && styles.tabLabelActive]}>Library</Text>
+          <Text style={[styles.tabLabel, activeTab === 'library' && styles.tabLabelActive]}>보관함</Text>
         </PressableScale>
 
         <PressableScale
           style={styles.tabItem}
           onPress={() => setActiveTab('mypage')}
           accessibilityRole="tab"
-          accessibilityLabel="My Page"
+          accessibilityLabel="마이 페이지"
           accessibilityState={{ selected: activeTab === 'mypage' }}
         >
           <Ionicons
             name={activeTab === 'mypage' ? 'person' : 'person-outline'}
             size={22}
-            color={activeTab === 'mypage' ? '#00e676' : '#7c8598'}
+            color={activeTab === 'mypage' ? palette.accent : palette.textDim}
           />
-          <Text style={[styles.tabLabel, activeTab === 'mypage' && styles.tabLabelActive]}>My Page</Text>
+          <Text style={[styles.tabLabel, activeTab === 'mypage' && styles.tabLabelActive]}>마이</Text>
         </PressableScale>
       </View>
 
@@ -265,20 +266,20 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  appContainer: { flex: 1, backgroundColor: '#0c0e12' },
+  appContainer: { flex: 1, backgroundColor: palette.bg },
   tabContentContainer: { flex: 1 },
   tabBar: {
     height: 60,
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
     justifyContent: 'space-around',
     alignItems: 'center',
   },
   tabItem: { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, flex: 1 },
-  tabLabel: { fontSize: 10, color: '#7c8598', marginTop: 4, fontWeight: '600' },
-  tabLabelActive: { color: '#00e676' },
+  tabLabel: { fontSize: 12, color: palette.textDim, marginTop: 4, fontWeight: '600' },
+  tabLabelActive: { color: palette.accent },
   exitToast: {
     position: 'absolute',
     bottom: 130,
@@ -286,22 +287,22 @@ const styles = StyleSheet.create({
     right: '15%',
     backgroundColor: 'rgba(30, 34, 44, 0.95)',
     borderWidth: 1,
-    borderColor: '#3a3f50',
-    borderRadius: 20,
+    borderColor: palette.borderStrong,
+    borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
   },
-  exitToastText: { color: '#ffffff', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  exitToastText: { color: palette.text, fontSize: 12, fontWeight: '600', textAlign: 'center' },
   customSplash: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#0c0e12',
+    backgroundColor: palette.bg,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,

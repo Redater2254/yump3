@@ -1,3 +1,4 @@
+import { palette, HIT_SLOP } from '../theme';
 import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
 import { Skeleton } from './ui/Skeleton';
@@ -59,6 +61,7 @@ interface PlaylistScreenProps {
 }
 
 export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
+  const insets = useSafeAreaInsets();
   const { showAlert, showToast } = useAlert();
   const [activeTab, setActiveTab] = useState<'downloads' | 'playlists' | 'likes'>(persistedLibraryTab);
 
@@ -182,12 +185,21 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
     if (!newPlaylistName.trim()) return;
     setCreatingPlaylist(true);
     try {
-      await createPlaylist(newPlaylistName.trim());
+      const created = await createPlaylist(newPlaylistName.trim());
+      // If the user came from "add to playlist", add the pending tracks now.
+      if (trackToAddToPlaylist) {
+        await addTracksToPlaylist(created.id, [trackToAddToPlaylist.id]);
+        setTrackToAddToPlaylist(null);
+      } else if (selectedTrackIds.length > 0) {
+        await addTracksToPlaylist(created.id, selectedTrackIds);
+        setSelectedTrackIds([]);
+        setIsSelectMode(false);
+      }
       setNewPlaylistName('');
       setShowCreateModal(false);
       fetchPlaylists();
     } catch (err) {
-      showAlert('Error', 'Failed to create playlist');
+      showAlert('오류', '플레이리스트를 만들지 못했습니다.');
     } finally {
       setCreatingPlaylist(false);
     }
@@ -206,7 +218,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
 
   const handleDeletePlaylist = async (playlistId: string, name: string) => {
     confirmAction(
-      'Delete Playlist',
+      '플레이리스트 삭제',
       `Are you sure you want to delete "${name}"?`,
       async () => {
         try {
@@ -214,7 +226,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
           setSelectedPlaylist(null);
           fetchPlaylists();
         } catch (err) {
-          showAlert('Error', 'Failed to delete playlist');
+          showAlert('오류', '플레이리스트를 삭제하지 못했습니다.');
         }
       }
     );
@@ -223,7 +235,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
   const handleRemoveTrack = async (trackId: string, title: string) => {
     if (!selectedPlaylist) return;
     confirmAction(
-      'Remove Track',
+      '곡 제거',
       `Remove "${title}" from this playlist?`,
       async () => {
         try {
@@ -231,7 +243,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
           fetchPlaylistDetail(selectedPlaylist.id);
           fetchPlaylists();
         } catch (err) {
-          showAlert('Error', 'Failed to remove track');
+          showAlert('오류', '곡을 제거하지 못했습니다.');
         }
       }
     );
@@ -248,7 +260,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
       setShowRenameModal(false);
       fetchPlaylists();
     } catch (err) {
-      showAlert('Error', 'Failed to rename playlist');
+      showAlert('오류', '이름을 변경하지 못했습니다.');
     } finally {
       setRenamingPlaylist(false);
     }
@@ -256,7 +268,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
 
   const handleDeleteDownloadedTrack = async (trackId: string, title: string) => {
     confirmAction(
-      'Delete Track',
+      '곡 삭제',
       `Are you sure you want to permanently delete "${title}" and its audio file?`,
       async () => {
         try {
@@ -272,7 +284,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
           fetchPlaylists();
           fetchLikes();
         } catch (err) {
-          showAlert('Error', 'Failed to delete track');
+          showAlert('오류', '곡을 삭제하지 못했습니다.');
         }
       }
     );
@@ -347,7 +359,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
       }
       fetchPlaylists();
     } catch (err: any) {
-      showAlert('Error', 'Failed to add tracks');
+      showAlert('오류', '곡을 추가하지 못했습니다.');
     } finally {
       setTrackToAddToPlaylist(null);
     }
@@ -369,7 +381,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
       activeScale={0.98}
     >
       <View style={styles.playlistIconBg}>
-        <Ionicons name="musical-notes" size={32} color="#00e676" />
+        <Ionicons name="musical-notes" size={32} color={palette.accent} />
       </View>
       <View style={styles.playlistCardInfo}>
         <Text style={styles.playlistCardName}>{item.name}</Text>
@@ -420,15 +432,17 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
             
             <PressableScale 
               style={[styles.playlistAddIconBtn, { marginRight: 8 }]}
+              hitSlop={HIT_SLOP}
               onPress={() => startSingleAddFlow(item)}
             >
-              <Ionicons name="add" size={20} color="#00e676" />
+              <Ionicons name="add" size={20} color={palette.accent} />
             </PressableScale>
             <PressableScale 
               style={styles.downloadDeleteIconBtn}
+              hitSlop={HIT_SLOP}
               onPress={() => handleDeleteDownloadedTrack(item.id, item.title)}
             >
-              <Ionicons name="trash-outline" size={18} color="#ff1744" />
+              <Ionicons name="trash-outline" size={18} color={palette.danger} />
             </PressableScale>
           </View>
         ) : null}
@@ -454,23 +468,26 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
         <View style={styles.editControls}>
           <PressableScale 
             style={styles.orderBtn}
+            hitSlop={HIT_SLOP}
             onPress={() => handleMoveTrack(index, 'up')}
             disabled={index === 0}
           >
-            <Ionicons name="arrow-up" size={18} color={index === 0 ? '#303440' : '#00e676'} />
+            <Ionicons name="arrow-up" size={18} color={index === 0 ? palette.disabled : palette.accent} />
           </PressableScale>
           <PressableScale 
             style={styles.orderBtn}
+            hitSlop={HIT_SLOP}
             onPress={() => handleMoveTrack(index, 'down')}
             disabled={index === playlistTracks.length - 1}
           >
-            <Ionicons name="arrow-down" size={18} color={index === playlistTracks.length - 1 ? '#303440' : '#00e676'} />
+            <Ionicons name="arrow-down" size={18} color={index === playlistTracks.length - 1 ? palette.disabled : palette.accent} />
           </PressableScale>
           <PressableScale 
             style={styles.removeBtn}
+            hitSlop={HIT_SLOP}
             onPress={() => handleRemoveTrack(item.id, item.title)}
           >
-            <Ionicons name="trash-outline" size={20} color="#ff1744" />
+            <Ionicons name="trash-outline" size={20} color={palette.danger} />
           </PressableScale>
         </View>
       ) : (
@@ -494,7 +511,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       {selectedPlaylist ? (
         <View style={styles.detailHeader}>
           <PressableScale 
@@ -505,7 +522,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
             }}
             activeScale={0.95}
           >
-            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+            <Ionicons name="arrow-back" size={24} color={palette.text} />
             <Text style={styles.backText}>Library</Text>
           </PressableScale>
           
@@ -518,8 +535,8 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               disabled={playlistTracks.length === 0}
               activeScale={0.93}
             >
-              <Ionicons name="play" size={16} color="#0a0a0a" style={{ marginRight: 4 }} />
-              <Text style={styles.playAllText}>Play All</Text>
+              <Ionicons name="play" size={16} color={palette.accentInk} style={{ marginRight: 4 }} />
+              <Text style={styles.playAllText}>전체 재생</Text>
             </PressableScale>
 
             <PressableScale 
@@ -527,8 +544,8 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               onPress={() => setIsEditMode(!isEditMode)}
               activeScale={0.93}
             >
-              <Ionicons name={isEditMode ? "checkmark" : "create-outline"} size={16} color="#ffffff" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBadgeText}>{isEditMode ? 'Done' : 'Edit'}</Text>
+              <Ionicons name={isEditMode ? "checkmark" : "create-outline"} size={16} color={palette.text} style={{ marginRight: 4 }} />
+              <Text style={styles.actionBadgeText}>{isEditMode ? '완료' : '편집'}</Text>
             </PressableScale>
 
             <PressableScale 
@@ -539,8 +556,8 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               }}
               activeScale={0.93}
             >
-              <Ionicons name="pencil" size={16} color="#ffffff" style={{ marginRight: 4 }} />
-              <Text style={styles.actionBadgeText}>Rename</Text>
+              <Ionicons name="pencil" size={16} color={palette.text} style={{ marginRight: 4 }} />
+              <Text style={styles.actionBadgeText}>이름 변경</Text>
             </PressableScale>
 
             <PressableScale 
@@ -548,18 +565,18 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               onPress={() => handleDeletePlaylist(selectedPlaylist.id, selectedPlaylist.name)}
               activeScale={0.93}
             >
-              <Ionicons name="trash" size={16} color="#ffffff" />
+              <Ionicons name="trash" size={16} color={palette.text} />
             </PressableScale>
           </View>
         </View>
       ) : (
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>My Library</Text>
+          <Text style={styles.mainTitle}>내 보관함</Text>
           
           {activeTab === 'playlists' && (
             <PressableScale style={styles.createBtn} onPress={() => setShowCreateModal(true)} activeScale={0.95}>
-              <Ionicons name="add" size={20} color="#0a0a0a" />
-              <Text style={styles.createBtnText}>New</Text>
+              <Ionicons name="add" size={20} color={palette.accentInk} />
+              <Text style={styles.createBtnText}>새로 만들기</Text>
             </PressableScale>
           )}
 
@@ -573,7 +590,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               activeScale={0.95}
             >
               <Text style={styles.selectModeBtnText}>
-                {isSelectMode ? 'Cancel' : 'Select'}
+                {isSelectMode ? '취소' : '선택'}
               </Text>
             </PressableScale>
           )}
@@ -591,7 +608,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               fetchDownloadedTracks();
             }}
           >
-            <Text style={[styles.tabText, activeTab === 'downloads' && styles.activeTabText]}>Downloads</Text>
+            <Text style={[styles.tabText, activeTab === 'downloads' && styles.activeTabText]}>다운로드</Text>
           </PressableScale>
           
           <PressableScale 
@@ -601,7 +618,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               fetchPlaylists();
             }}
           >
-            <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>Playlists</Text>
+            <Text style={[styles.tabText, activeTab === 'playlists' && styles.activeTabText]}>플레이리스트</Text>
           </PressableScale>
           
           <PressableScale 
@@ -611,7 +628,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               fetchLikes();
             }}
           >
-            <Text style={[styles.tabText, activeTab === 'likes' && styles.activeTabText]}>Favorites</Text>
+            <Text style={[styles.tabText, activeTab === 'likes' && styles.activeTabText]}>즐겨찾기</Text>
           </PressableScale>
         </View>
       )}
@@ -627,9 +644,9 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyView}>
-                <Ionicons name="musical-notes-outline" size={48} color="#2d3342" />
-                <Text style={styles.emptyText}>Playlist is empty.</Text>
-                <Text style={styles.emptySubText}>Go to the Home tab and search for songs to download!</Text>
+                <Ionicons name="musical-notes-outline" size={48} color={palette.borderStrong} />
+                <Text style={styles.emptyText}>플레이리스트가 비어 있습니다.</Text>
+                <Text style={styles.emptySubText}>검색 탭에서 곡을 찾아 다운로드하세요.</Text>
               </View>
             }
           />
@@ -646,9 +663,9 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               contentContainerStyle={styles.listContent}
               ListEmptyComponent={
                 <View style={styles.emptyView}>
-                  <Ionicons name="cloud-download-outline" size={48} color="#2d3342" />
-                  <Text style={styles.emptyText}>No downloaded songs.</Text>
-                  <Text style={styles.emptySubText}>Go to the Home tab to search and download music!</Text>
+                  <Ionicons name="cloud-download-outline" size={48} color={palette.borderStrong} />
+                  <Text style={styles.emptyText}>다운로드한 곡이 없습니다.</Text>
+                  <Text style={styles.emptySubText}>검색 탭에서 곡을 찾아 다운로드하세요.</Text>
                 </View>
               }
             />
@@ -664,7 +681,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               contentContainerStyle={styles.listContent}
               ListEmptyComponent={
                 <View style={styles.emptyView}>
-                  <Text style={styles.emptyText}>No playlists found.</Text>
+                  <Text style={styles.emptyText}>플레이리스트가 없습니다.</Text>
                 </View>
               }
             />
@@ -680,9 +697,9 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               contentContainerStyle={styles.listContent}
               ListEmptyComponent={
                 <View style={styles.emptyView}>
-                  <Ionicons name="heart-outline" size={48} color="#2d3342" />
-                  <Text style={styles.emptyText}>No favorited songs yet.</Text>
-                  <Text style={styles.emptySubText}>Tap the heart icon in the player on your favorite songs.</Text>
+                  <Ionicons name="heart-outline" size={48} color={palette.borderStrong} />
+                  <Text style={styles.emptyText}>즐겨찾기한 곡이 없습니다.</Text>
+                  <Text style={styles.emptySubText}>플레이어에서 하트를 눌러 추가하세요.</Text>
                 </View>
               }
             />
@@ -704,7 +721,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               }}
               activeScale={0.95}
             >
-              <Text style={styles.batchCancelBtnText}>Cancel</Text>
+              <Text style={styles.batchCancelBtnText}>취소</Text>
             </PressableScale>
             <PressableScale 
               style={styles.batchAddBtn}
@@ -714,7 +731,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
               }}
               activeScale={0.95}
             >
-              <Text style={styles.batchAddBtnText}>Add to Playlist</Text>
+              <Text style={styles.batchAddBtnText}>플레이리스트에 추가</Text>
             </PressableScale>
           </View>
         </View>
@@ -728,11 +745,11 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Create Playlist</Text>
+            <Text style={styles.modalTitle}>플레이리스트 만들기</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Playlist name"
-              placeholderTextColor="#666"
+              placeholderTextColor={palette.textDim}
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
               autoFocus
@@ -745,7 +762,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
                   setShowCreateModal(false);
                 }}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>취소</Text>
               </PressableScale>
               <PressableScale 
                 style={[styles.modalBtn, styles.confirmBtn]} 
@@ -753,9 +770,9 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
                 disabled={creatingPlaylist}
               >
                 {creatingPlaylist ? (
-                  <ActivityIndicator color="#0a0a0a" size="small" />
+                  <ActivityIndicator color={palette.accentInk} size="small" />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Create</Text>
+                  <Text style={styles.confirmBtnText}>만들기</Text>
                 )}
               </PressableScale>
             </View>
@@ -771,11 +788,11 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Rename Playlist</Text>
+            <Text style={styles.modalTitle}>이름 변경</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Playlist name"
-              placeholderTextColor="#666"
+              placeholderTextColor={palette.textDim}
               value={renamePlaylistName}
               onChangeText={setRenamePlaylistName}
               autoFocus
@@ -788,7 +805,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
                   setShowRenameModal(false);
                 }}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>취소</Text>
               </PressableScale>
               <PressableScale 
                 style={[styles.modalBtn, styles.confirmBtn]} 
@@ -796,9 +813,9 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
                 disabled={renamingPlaylist}
               >
                 {renamingPlaylist ? (
-                  <ActivityIndicator color="#0a0a0a" size="small" />
+                  <ActivityIndicator color={palette.accentInk} size="small" />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Save</Text>
+                  <Text style={styles.confirmBtnText}>저장</Text>
                 )}
               </PressableScale>
             </View>
@@ -817,7 +834,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Add to Playlist</Text>
+            <Text style={styles.modalTitle}>플레이리스트에 추가</Text>
             <Text style={styles.modalSubtitle}>
               {trackToAddToPlaylist 
                 ? `Add "${trackToAddToPlaylist.title}" to:` 
@@ -832,15 +849,27 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
                   style={styles.playlistItem} 
                   onPress={() => handleSelectPlaylistTarget(item.id)}
                 >
-                  <Ionicons name="musical-notes-outline" size={20} color="#00e676" style={styles.playlistIcon} />
+                  <Ionicons name="musical-notes-outline" size={20} color={palette.accent} style={styles.playlistIcon} />
                   <Text style={styles.playlistItemText}>{item.name}</Text>
                 </PressableScale>
               )}
               style={styles.modalList}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>No playlists available. Please create a playlist first.</Text>
+                <Text style={styles.emptyText}>플레이리스트가 없습니다. 먼저 만들어 주세요.</Text>
               }
             />
+
+            <PressableScale
+              style={styles.createInlineBtn}
+              onPress={() => {
+                setShowAddToPlaylistModal(false);
+                setShowCreateModal(true);
+              }}
+              activeScale={0.97}
+            >
+              <Ionicons name="add" size={18} color={palette.accent} />
+              <Text style={styles.createInlineText}>새 플레이리스트 만들기</Text>
+            </PressableScale>
 
             <PressableScale 
               style={styles.modalCloseButton} 
@@ -849,7 +878,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
                 setTrackToAddToPlaylist(null);
               }}
             >
-              <Text style={styles.modalCloseButtonText}>Cancel</Text>
+              <Text style={styles.modalCloseButtonText}>취소</Text>
             </PressableScale>
           </View>
         </View>
@@ -861,9 +890,8 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ isActive }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0c0e12',
+    backgroundColor: palette.bg,
     paddingHorizontal: 20,
-    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',
@@ -880,7 +908,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   backText: {
-    color: '#00e676',
+    color: palette.accent,
     fontSize: 15,
     marginLeft: 4,
     fontWeight: '600',
@@ -888,7 +916,7 @@ const styles = StyleSheet.create({
   playlistTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#ffffff',
+    color: palette.text,
     marginBottom: 12,
   },
   detailActionRow: {
@@ -900,101 +928,101 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 8,
     marginRight: 10,
   },
   playAllBadge: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
   },
   playAllText: {
-    color: '#0a0a0a',
+    color: palette.accentInk,
     fontWeight: '700',
     fontSize: 13,
   },
   editBadge: {
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
   },
   editActiveBadge: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     borderWidth: 1,
-    borderColor: '#00e676',
+    borderColor: palette.accent,
   },
   actionBadgeText: {
-    color: '#ffffff',
+    color: palette.text,
     fontWeight: '600',
     fontSize: 13,
   },
   deleteBadge: {
-    backgroundColor: '#ff1744',
+    backgroundColor: palette.danger,
     paddingHorizontal: 10,
   },
   renameBadge: {
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
   },
   mainTitle: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#ffffff',
+    color: palette.text,
   },
   createBtn: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 16,
   },
   createBtnText: {
-    color: '#0a0a0a',
+    color: palette.accentInk,
     fontWeight: '700',
     fontSize: 13,
     marginLeft: 2,
   },
   selectModeBtn: {
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 16,
   },
   selectModeBtnActive: {
-    borderColor: '#00e676',
+    borderColor: palette.accent,
   },
   selectModeBtnText: {
-    color: '#ffffff',
+    color: palette.text,
     fontWeight: '600',
     fontSize: 13,
   },
   tabsContainer: {
     flexDirection: 'row',
     marginBottom: 20,
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 8,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
   },
   activeTab: {
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
   },
   tabText: {
-    color: '#707888',
+    color: palette.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#00e676',
+    color: palette.accent,
   },
   listContent: {
     paddingBottom: 120,
@@ -1002,18 +1030,18 @@ const styles = StyleSheet.create({
   playlistCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#20242e',
+    borderColor: palette.border,
   },
   playlistIconBg: {
     width: 50,
     height: 50,
     borderRadius: 8,
-    backgroundColor: '#20242e',
+    backgroundColor: palette.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1024,11 +1052,11 @@ const styles = StyleSheet.create({
   playlistCardName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: palette.text,
   },
   playlistCardCount: {
     fontSize: 12,
-    color: '#707888',
+    color: palette.textMuted,
     marginTop: 4,
   },
   centerLoader: {
@@ -1039,17 +1067,17 @@ const styles = StyleSheet.create({
   },
   trackCard: {
     flexDirection: 'row',
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1d212b',
+    borderColor: palette.border,
   },
   selectedTrackCard: {
-    borderColor: '#00e676',
-    backgroundColor: '#182220',
+    borderColor: palette.accent,
+    backgroundColor: palette.accentWash,
   },
   checkboxArea: {
     padding: 8,
@@ -1063,8 +1091,8 @@ const styles = StyleSheet.create({
   trackThumbnail: {
     width: 48,
     height: 48,
-    borderRadius: 4,
-    backgroundColor: '#252a36',
+    borderRadius: 8,
+    backgroundColor: palette.border,
   },
   trackMeta: {
     flex: 1,
@@ -1072,28 +1100,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trackTitle: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 2,
   },
   trackArtist: {
-    color: '#707888',
-    fontSize: 11,
+    color: palette.textMuted,
+    fontSize: 12,
   },
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   trackDuration: {
-    color: '#7c8598',
-    fontSize: 11,
+    color: palette.textDim,
+    fontSize: 12,
     paddingRight: 12,
   },
   playlistAddIconBtn: {
     padding: 8,
-    backgroundColor: '#20242e',
-    borderRadius: 4,
+    backgroundColor: palette.border,
+    borderRadius: 8,
   },
   editControls: {
     flexDirection: 'row',
@@ -1126,7 +1154,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   batchActionText: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1134,25 +1162,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   batchCancelBtn: {
-    backgroundColor: '#252a36',
+    backgroundColor: palette.border,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 8,
     marginRight: 8,
   },
   batchCancelBtnText: {
-    color: '#707888',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
   batchAddBtn: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   batchAddBtnText: {
-    color: '#0a0a0a',
+    color: palette.accentInk,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1162,14 +1190,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyText: {
-    color: '#707888',
+    color: palette.textMuted,
     fontSize: 15,
     fontWeight: '600',
     marginTop: 14,
     textAlign: 'center',
   },
   emptySubText: {
-    color: '#6b7488',
+    color: palette.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 8,
@@ -1182,28 +1210,28 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 16,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#ffffff',
+    color: palette.text,
     marginBottom: 16,
   },
   modalSubtitle: {
-    color: '#707888',
+    color: palette.textMuted,
     fontSize: 13,
     marginBottom: 20,
   },
   modalInput: {
-    backgroundColor: '#20242e',
-    color: '#ffffff',
+    backgroundColor: palette.border,
+    color: palette.text,
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -1220,18 +1248,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtn: {
-    backgroundColor: '#252a36',
+    backgroundColor: palette.border,
     marginRight: 10,
   },
   cancelBtnText: {
-    color: '#ffffff',
+    color: palette.text,
     fontWeight: '600',
   },
   confirmBtn: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
   },
   confirmBtnText: {
-    color: '#0a0a0a',
+    color: palette.accentInk,
     fontWeight: '700',
   },
   modalList: {
@@ -1243,29 +1271,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
   },
   playlistIcon: {
     marginRight: 12,
   },
   playlistItemText: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 15,
     fontWeight: '600',
   },
+  createInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.accent,
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  createInlineText: { color: palette.accent, fontSize: 14, fontWeight: '700', marginLeft: 6 },
   modalCloseButton: {
-    backgroundColor: '#252a36',
+    backgroundColor: palette.border,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   modalCloseButtonText: {
-    color: '#ffffff',
+    color: palette.text,
     fontWeight: '600',
   },
   downloadDeleteIconBtn: {
     padding: 8,
-    backgroundColor: '#20242e',
-    borderRadius: 4,
+    backgroundColor: palette.border,
+    borderRadius: 8,
   },
 });

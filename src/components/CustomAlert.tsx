@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, Modal } from 'react-native';
+import { palette } from '../theme';
 import { useAlert } from '../context/AlertContext';
 import { PressableScale } from './ui/PressableScale';
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
@@ -86,10 +87,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   alertCard: {
-    backgroundColor: '#161920',
+    backgroundColor: palette.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#252a36',
+    borderColor: palette.border,
     padding: 24,
     width: '100%',
     maxWidth: 320,
@@ -102,13 +103,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#ffffff',
+    color: palette.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
     fontSize: 13,
-    color: '#b0b8c8',
+    color: palette.textMuted,
     lineHeight: 18,
     marginBottom: 20,
     textAlign: 'center',
@@ -140,23 +141,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   defaultBtn: {
-    backgroundColor: '#00e676',
+    backgroundColor: palette.accent,
   },
   defaultBtnText: {
-    color: '#0a0a0a',
+    color: palette.accentInk,
   },
   cancelBtn: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
   },
   cancelBtnText: {
-    color: '#707888',
+    color: palette.textMuted,
   },
   destructiveBtn: {
-    backgroundColor: '#ff1744',
+    backgroundColor: palette.danger,
   },
   destructiveBtnText: {
-    color: '#ffffff',
+    color: palette.text,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
+import { palette } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
@@ -49,7 +50,7 @@ export const TrackArtwork: React.FC<Props> = ({
   if (!src) {
     return (
       <View style={[style, styles.placeholder]}>
-        <Ionicons name="musical-notes" size={placeholderIconSize} color="#2d3342" />
+        <Ionicons name="musical-notes" size={placeholderIconSize} color={palette.borderStrong} />
       </View>
     );
   }
@@ -65,5 +66,5 @@ export const TrackArtwork: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  placeholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#161920' },
+  placeholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surface },
 });

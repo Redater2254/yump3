@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
+import { palette } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { PressableScale } from './PressableScale';
@@ -20,7 +21,7 @@ export const SwipeToDelete: React.FC<Props> = ({ children, onDelete, label = 'De
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Ionicons name="trash-outline" size={20} color="#ffffff" />
+      <Ionicons name="trash-outline" size={20} color={palette.text} />
       <Text style={styles.actionText}>{label}</Text>
     </PressableScale>
   );
@@ -44,15 +45,15 @@ const styles = StyleSheet.create({
   },
   action: {
     width: 84,
-    backgroundColor: '#ff1744',
+    backgroundColor: palette.danger,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
     marginLeft: 6,
   },
   actionText: {
-    color: '#ffffff',
-    fontSize: 10,
+    color: palette.text,
+    fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
   },

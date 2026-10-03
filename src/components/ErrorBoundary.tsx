@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { palette } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -79,15 +80,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0c0e12', paddingTop: 60, paddingHorizontal: 16 },
-  title: { color: '#ff5252', fontSize: 20, fontWeight: '800', marginBottom: 6 },
-  subtitle: { color: '#9098a8', fontSize: 12, marginBottom: 12 },
+  container: { flex: 1, backgroundColor: palette.bg, paddingTop: 60, paddingHorizontal: 16 },
+  title: { color: palette.danger, fontSize: 20, fontWeight: '800', marginBottom: 6 },
+  subtitle: { color: palette.textMuted, fontSize: 12, marginBottom: 12 },
   box: {
     flex: 1,
-    backgroundColor: '#161920',
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
   },
-  msg: { color: '#e0e0e0', fontSize: 12, fontFamily: 'monospace' },
+  msg: { color: palette.text, fontSize: 12, fontFamily: 'monospace' },
 });

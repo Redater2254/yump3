@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { palette } from '../theme';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,8 +9,8 @@ import { useAlert } from '../context/AlertContext';
 const TOAST_DURATION = 2200;
 
 const ICONS: Record<string, { name: any; color: string }> = {
-  success: { name: 'checkmark-circle', color: '#00e676' },
-  error: { name: 'alert-circle', color: '#ff5252' },
+  success: { name: 'checkmark-circle', color: palette.accent },
+  error: { name: 'alert-circle', color: palette.danger },
   info: { name: 'information-circle', color: '#4fc3f7' },
 };
 
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(28, 32, 42, 0.98)',
     borderWidth: 1,
-    borderColor: '#2d3342',
+    borderColor: palette.borderStrong,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   text: {
-    color: '#ffffff',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '600',
     marginLeft: 10,

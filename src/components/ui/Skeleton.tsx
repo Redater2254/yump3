@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { palette } from '../../theme';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -33,7 +34,7 @@ export const Skeleton: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) 
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: '#20242e',
-    borderRadius: 6,
+    backgroundColor: palette.border,
+    borderRadius: 8,
   },
 });
