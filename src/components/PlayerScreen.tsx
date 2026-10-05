@@ -42,8 +42,8 @@ import type { CoverPalette, StageLightSettings, WaveformData } from '../services
 import { useAlert } from '../context/AlertContext';
 
 const { width, height } = Dimensions.get('window');
-const GLOW = require('../../assets/images/glow.png');
 const HALO = require('../../assets/images/halo.png');
+const AURA = require('../../assets/images/aura.png');
 
 export const PlayerScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -431,8 +431,10 @@ export const PlayerScreen: React.FC = () => {
   const glowColor = coverColors?.glow || coverColors?.wash || palette.accent;
   const washColor = coverColors?.wash || coverColors?.glow || palette.accent;
   const spread = stageLightSettings.size;
-  const auraSize = artSize * 1.9 * spread;
-  const haloSize = artSize * 1.44 * spread;
+  // Both glow assets embed a cover-sized rounded square, so they render at the
+  // same ratio and follow the artwork's shape instead of a circle.
+  const auraSize = artSize * 1.6 * spread;
+  const haloSize = artSize * 1.6 * spread;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -465,7 +467,7 @@ export const PlayerScreen: React.FC = () => {
                 {stageLightSettings.enabled && (
                   <>
                     <Animated.Image
-                      source={GLOW}
+                      source={AURA}
                       style={[
                         styles.artHalo,
                         {

@@ -13,7 +13,7 @@ import { palette } from '../../theme';
 import type { CoverPalette, StageLightSettings } from '../../services/lighting';
 
 const HALO = require('../../../assets/images/halo.png');
-const GLOW = require('../../../assets/images/glow.png');
+const AURA = require('../../../assets/images/aura.png');
 const SAMPLE = require('../../../assets/images/light-sample.png');
 
 interface Props {
@@ -76,13 +76,13 @@ export const LightingPreview: React.FC<Props> = ({
     };
   });
 
-  const auraSize = size * 1.9 * spread;
-  const haloSize = size * 1.44 * spread;
+  const auraSize = size * 1.6 * spread;
+  const haloSize = size * 1.6 * spread;
 
   return (
     <View style={[styles.stage, { width: size, height: size }]}>
       <Animated.Image
-        source={GLOW}
+        source={AURA}
         style={[
           styles.layer,
           {
