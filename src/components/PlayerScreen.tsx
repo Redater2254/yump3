@@ -132,7 +132,7 @@ export const PlayerScreen: React.FC = () => {
   const auraStyle = useAnimatedStyle(() => {
     const pulse = energySV.value * 0.45 + bassSV.value * 0.55;
     return {
-      opacity: stageLight ? 0.05 + pulse * 0.1 : 0,
+      opacity: stageLight ? 0.08 + pulse * 0.16 : 0,
       transform: [{ scale: 0.98 + pulse * 0.06 }],
     };
   });
@@ -455,10 +455,10 @@ export const PlayerScreen: React.FC = () => {
                       style={[
                         styles.artHalo,
                         {
-                          width: artSize * 1.8,
-                          height: artSize * 1.8,
-                          left: -artSize * 0.4,
-                          top: -artSize * 0.4,
+                          width: artSize * 1.9,
+                          height: artSize * 1.9,
+                          left: -artSize * 0.45,
+                          top: -artSize * 0.45,
                           tintColor: washColor,
                         },
                         auraStyle,
@@ -469,10 +469,10 @@ export const PlayerScreen: React.FC = () => {
                       style={[
                         styles.artHalo,
                         {
-                          width: artSize * 1.7,
-                          height: artSize * 1.7,
-                          left: -artSize * 0.35,
-                          top: -artSize * 0.35,
+                          width: artSize * 1.44,
+                          height: artSize * 1.44,
+                          left: -artSize * 0.22,
+                          top: -artSize * 0.22,
                           tintColor: glowColor,
                         },
                         haloStyle,
@@ -630,9 +630,11 @@ const styles = StyleSheet.create({
     backgroundColor: palette.bg,
     paddingHorizontal: 28,
   },
-  scroll: { flex: 1 },
+  scroll: { flex: 1, marginHorizontal: -28 },
   scrollContent: { flexGrow: 1, justifyContent: 'center', paddingVertical: 8 },
   content: {
+    width: '100%',
+    paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
