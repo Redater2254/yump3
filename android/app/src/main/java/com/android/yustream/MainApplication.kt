@@ -26,6 +26,7 @@ class MainApplication : Application(), ReactApplication {
           add(ApkUpdaterPackage())
           add(DownloadNotifierPackage())
           add(AudioEffectsPackage())
+          add(LightingPackage())
         }
     )
   }

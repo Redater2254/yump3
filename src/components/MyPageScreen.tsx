@@ -38,6 +38,12 @@ import {
 } from '../services/audioEffects';
 import { setBitPerfectMode } from '../services/player';
 import { PlaybackModal } from './mypage/PlaybackModal';
+import {
+  getStageLightEnabled,
+  loadStageLightEnabled,
+  setStageLightEnabled,
+  subscribeStageLight,
+} from '../services/lighting';
 import { AudioModal } from './mypage/AudioModal';
 
 const BETA_TRANSITION_KEY = 'yump3_beta_smart_transition';
@@ -54,6 +60,7 @@ export const MyPageScreen: React.FC = () => {
   const [betaSmartTransition, setBetaSmartTransition] = useState(false);
   const [betaSleepTimer, setBetaSleepTimer] = useState(false);
   const [hapticsEnabled, setHapticsEnabledState] = useState(true);
+  const [stageLight, setStageLightState] = useState(getStageLightEnabled());
   const [audioQuality, setAudioQualityState] = useState('best');
   const [showBetaModal, setShowBetaModal] = useState(false);
   const [showAudioModal, setShowAudioModal] = useState(false);
@@ -207,6 +214,12 @@ export const MyPageScreen: React.FC = () => {
       if (remaining === 0) setSelectedMinutes(null);
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Stage light setting lives in the lighting service so the player can react.
+  useEffect(() => {
+    loadStageLightEnabled();
+    return subscribeStageLight(setStageLightState);
   }, []);
 
   useEffect(() => {
@@ -572,6 +585,8 @@ export const MyPageScreen: React.FC = () => {
         onToggleSleepTimer={() => toggleSetting('timer')}
         hapticsEnabled={hapticsEnabled}
         onToggleHaptics={() => toggleSetting('haptics')}
+        stageLight={stageLight}
+        onToggleStageLight={() => setStageLightEnabled(!stageLight)}
         sleepRemaining={sleepRemaining}
         selectedMinutes={selectedMinutes}
         onStartTimer={handleStartTimer}

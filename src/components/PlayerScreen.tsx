@@ -12,7 +12,12 @@ import TrackPlayer, {
   State,
   RepeatMode
 } from 'react-native-track-player';
-import { runOnJS } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useFrameCallback,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { PlayerControls } from '../services/player';
 import { MarqueeText } from './MarqueeText';
 import { QueueModal } from './player/QueueModal';
@@ -26,14 +31,27 @@ import {
   applyAudioSettings,
 } from '../services/audioEffects';
 import { setBitPerfectMode } from '../services/player';
+import { StageLight } from './player/StageLight';
+import { WaveformStrip } from './player/WaveformStrip';
+import {
+  getCoverPalette,
+  getStageLightEnabled,
+  getWaveform,
+  loadStageLightEnabled,
+  subscribeStageLight,
+} from '../services/lighting';
+import type { CoverPalette, WaveformData } from '../services/lighting';
 
 const { width, height } = Dimensions.get('window');
+const GLOW = require('../../assets/images/glow.png');
 
 export const PlayerScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const artSize = Math.min(width * 0.72, height * 0.32, 320);
   const playbackState = usePlaybackState();
   const progress = useProgress();
+  const isPlaying = playbackState.state === State.Playing;
+  const isBuffering = playbackState.state === State.Buffering || playbackState.state === State.Loading;
   
   const [currentTrack, setCurrentTrack] = useState<any>(null);
   const [isLiked, setIsLiked] = useState(false);
@@ -57,6 +75,11 @@ export const PlayerScreen: React.FC = () => {
 
   const [isDraggingProgress, setIsDraggingProgress] = useState(false);
   const [dragProgressPercent, setDragProgressPercent] = useState(0);
+
+  // Stage light (cover-colored ambient lighting driven by the waveform).
+  const [coverColors, setCoverColors] = useState<CoverPalette | null>(null);
+  const [hasWaveform, setHasWaveform] = useState(false);
+  const [stageLight, setStageLight] = useState(getStageLightEnabled());
   
 
   // Sync refs to avoid stale closures inside PanResponder
@@ -69,6 +92,40 @@ export const PlayerScreen: React.FC = () => {
   durationRef.current = progress.duration;
   progressBarWidthRef.current = progressBarWidth;
   volumeBarWidthRef.current = volumeBarWidth;
+
+  const positionRef = useRef(progress.position);
+  positionRef.current = progress.position;
+
+  const waveSV = useSharedValue<WaveformData | null>(null);
+  const posSV = useSharedValue(0);
+  const energySV = useSharedValue(0);
+  const bassSV = useSharedValue(0);
+  const playingSV = useSharedValue(0);
+  const lightSV = useSharedValue(1);
+
+  // Advances a local playback clock and samples the envelope every frame.
+  useFrameCallback((info) => {
+    'worklet';
+    const wave = waveSV.value;
+    if (!lightSV.value || !playingSV.value || !wave) {
+      // Settle the lights instead of freezing mid-pulse.
+      energySV.value += (0 - energySV.value) * 0.08;
+      bassSV.value += (0 - bassSV.value) * 0.08;
+      return;
+    }
+    const dt = Math.min(0.05, (info.timeSincePreviousFrame ?? 16) / 1000);
+    posSV.value += dt;
+    const idx = Math.round(posSV.value * wave.hz);
+    const energy = idx >= 0 && idx < wave.energy.length ? wave.energy[idx] / 255 : 0;
+    const low = idx >= 0 && idx < wave.low.length ? wave.low[idx] / 255 : 0;
+    energySV.value += (energy - energySV.value) * 0.3;
+    bassSV.value += (low - bassSV.value) * 0.18;
+  });
+
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: stageLight ? 0.16 + bassSV.value * 0.5 : 0,
+    transform: [{ scale: 0.98 + bassSV.value * 0.1 }],
+  }));
 
   const progressPanResponder = useScrubber({
     getWidth: () => progressBarWidthRef.current,
@@ -162,6 +219,59 @@ export const PlayerScreen: React.FC = () => {
     getInitialRepeatMode();
     loadAudioSettings().then((settings) => setBitPerfect(settings.bitPerfect));
   }, []);
+
+  // Stage light setting is shared with the playback sheet on My Page.
+  useEffect(() => {
+    let mounted = true;
+    loadStageLightEnabled().then((value) => {
+      if (mounted) setStageLight(value);
+    });
+    const unsubscribe = subscribeStageLight(setStageLight);
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    playingSV.value = isPlaying ? 1 : 0;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    lightSV.value = stageLight && hasWaveform ? 1 : 0;
+  }, [stageLight, hasWaveform]);
+
+  // Keep the animation clock close to the real position without jitter.
+  useEffect(() => {
+    if (Math.abs(posSV.value - progress.position) > 0.4) {
+      posSV.value = progress.position;
+    }
+  }, [progress.position]);
+
+  // Decode the waveform and cover palette once per track (cached afterwards).
+  useEffect(() => {
+    let cancelled = false;
+    waveSV.value = null;
+    setHasWaveform(false);
+    setCoverColors(null);
+    energySV.value = 0;
+    bassSV.value = 0;
+    if (!stageLight || !currentTrack?.id) return;
+    const track = currentTrack;
+    (async () => {
+      const [wave, colors] = await Promise.all([getWaveform(track), getCoverPalette(track)]);
+      if (cancelled) return;
+      if (wave) {
+        waveSV.value = wave;
+        posSV.value = positionRef.current || 0;
+        setHasWaveform(true);
+      }
+      if (colors) setCoverColors(colors);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTrack?.id, stageLight]);
 
   const handleToggleBitPerfect = async () => {
     const settings = await loadAudioSettings();
@@ -285,8 +395,6 @@ export const PlayerScreen: React.FC = () => {
     const sec = Math.floor(seconds % 60);
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
-  const isPlaying = playbackState.state === State.Playing;
-  const isBuffering = playbackState.state === State.Buffering || playbackState.state === State.Loading;
 
   const progressPercent = isDraggingProgress
     ? dragProgressPercent * 100
@@ -299,8 +407,16 @@ export const PlayerScreen: React.FC = () => {
     ? dragProgressPercent * progress.duration
     : progress.position;
 
+  const glowColor = coverColors?.glow || coverColors?.wash || palette.accent;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <StageLight
+        colors={coverColors}
+        energy={energySV}
+        bass={bassSV}
+        enabled={stageLight && hasWaveform}
+      />
       {currentTrack ? (
         <ScrollView
           style={styles.scroll}
@@ -326,13 +442,31 @@ export const PlayerScreen: React.FC = () => {
             </View>
 
             <GestureDetector gesture={swipeGesture}>
-              <View style={[styles.artContainer, { width: artSize, height: artSize }]}>
-                <TrackArtwork
-                  youtubeId={currentTrack.youtube_id}
-                  uri={currentTrack.thumbnail_path || currentTrack.thumbnail_url || currentTrack.artwork}
-                  style={styles.albumArt}
-                  placeholderIconSize={64}
-                />
+              <View style={[styles.artStage, { width: artSize, height: artSize }]}>
+                {stageLight && (
+                  <Animated.Image
+                    source={GLOW}
+                    style={[
+                      styles.artHalo,
+                      {
+                        width: artSize * 1.8,
+                        height: artSize * 1.8,
+                        left: -artSize * 0.4,
+                        top: -artSize * 0.4,
+                        tintColor: glowColor,
+                      },
+                      haloStyle,
+                    ]}
+                  />
+                )}
+                <View style={[styles.artContainer, { width: artSize, height: artSize }]}>
+                  <TrackArtwork
+                    youtubeId={currentTrack.youtube_id}
+                    uri={currentTrack.thumbnail_path || currentTrack.thumbnail_url || currentTrack.artwork}
+                    style={styles.albumArt}
+                    placeholderIconSize={64}
+                  />
+                </View>
               </View>
             </GestureDetector>
 
@@ -381,6 +515,15 @@ export const PlayerScreen: React.FC = () => {
               <Text style={styles.timeText}>{formatTime(progress.duration)}</Text>
             </View>
           </View>
+
+          {stageLight && hasWaveform && (
+            <WaveformStrip
+              dataSV={waveSV}
+              position={posSV}
+              playingSV={playingSV}
+              color={glowColor}
+            />
+          )}
 
           <View style={styles.controlsRow}>
             <PressableScale onPress={handleToggleShuffle} style={styles.secondaryControl} activeScale={0.85} hitSlop={HIT_SLOP}>
@@ -501,6 +644,15 @@ const styles = StyleSheet.create({
   },
   bitPerfectText: { color: palette.textDim, fontSize: 12, fontWeight: '700' },
   bitPerfectTextActive: { color: palette.accent },
+  artStage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 22,
+  },
+  artHalo: {
+    position: 'absolute',
+    pointerEvents: 'none',
+  },
   artContainer: {
     borderRadius: 20,
     backgroundColor: palette.surface,
@@ -509,7 +661,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 15,
     elevation: 10,
-    marginBottom: 22,
     overflow: 'hidden',
   },
   albumArt: {
