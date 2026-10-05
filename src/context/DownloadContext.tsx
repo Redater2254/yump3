@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
-import { downloadTrack, searchTracks, getPlaylistInfo, friendlyYtDlpError } from '../services/ytdlp';
+import { downloadTrack, getVideoInfo, getPlaylistInfo, friendlyYtDlpError } from '../services/ytdlp';
 import { addTrack, getTrack, createPlaylist, addTracksToPlaylist } from '../services/library';
 
 const { DownloadNotifier } = NativeModules;
@@ -133,22 +133,39 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (inFlightRef.current.has(taskId)) return false;
     inFlightRef.current.add(taskId);
     try {
-      const { filePath, duration, thumbnailPath } = await downloadTrack(youtubeId, (e: any) => {
+      const {
+        filePath,
+        duration,
+        thumbnailPath,
+        title: realTitle,
+        artist: realArtist,
+      } = await downloadTrack(youtubeId, (e: any) => {
         updateTask(taskId, { progress: typeof e.progress === 'number' ? e.progress : undefined });
       });
+
+      // The file's own metadata wins over whatever the caller passed in.
+      const finalTitle = realTitle || meta.title || 'Unknown Title';
+      const finalArtist = realArtist || meta.artist || 'Unknown Artist';
 
       await addTrack({
         id: youtubeId,
         youtube_id: youtubeId,
-        title: meta.title || 'Unknown Title',
-        artist: meta.artist || 'Unknown Artist',
-        duration: meta.duration || duration || 0,
+        title: finalTitle,
+        artist: finalArtist,
+        duration: duration || meta.duration || 0,
         thumbnail_url: meta.thumbnail_url || `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
         thumbnail_path: thumbnailPath || null,
         file_path: filePath,
       });
 
-      updateTask(taskId, { status: 'completed', progress: 100, errorMsg: undefined, errorDetail: undefined });
+      updateTask(taskId, {
+        title: finalTitle,
+        artist: finalArtist,
+        status: 'completed',
+        progress: 100,
+        errorMsg: undefined,
+        errorDetail: undefined,
+      });
       return true;
     } catch (err: any) {
       const detail = String(err?.message || err);
@@ -257,13 +274,14 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     if (inFlightRef.current.has(youtubeId)) return { type: 'video' };
 
-    // Try to enrich metadata via search, but fall back to a placeholder.
+    // Fetch metadata for the exact video (a ytsearch<id> lookup can return a
+    // different video entirely). The download fills in the real tags anyway.
     let meta: any = { title: `YouTube (${youtubeId})`, artist: 'Unknown Artist' };
     try {
-      const results = await searchTracks(youtubeId, 1);
-      if (results[0] && results[0].youtube_id === youtubeId) meta = results[0];
+      const info = await getVideoInfo(`https://www.youtube.com/watch?v=${youtubeId}`);
+      if (info && info.youtube_id === youtubeId) meta = info;
     } catch (e) {
-      // offline / search failed: keep placeholder
+      // offline / lookup failed: keep placeholder
     }
 
     setDownloadTasks((prev) => [

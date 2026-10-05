@@ -121,7 +121,12 @@ class YtDlpModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 request.addOption("--force-ipv4")
                 request.addOption("--sleep-requests", "1")
                 request.addOption("--no-simulate")
-                request.addOption("--print", "%(duration)s")
+                // Machine-readable metadata for the JS layer (order matters).
+                request.addOption("--print", "YMP3META|title|%(title)s")
+                request.addOption("--print", "YMP3META|track|%(track)s")
+                request.addOption("--print", "YMP3META|artist|%(artist)s")
+                request.addOption("--print", "YMP3META|uploader|%(uploader)s")
+                request.addOption("--print", "YMP3META|duration|%(duration)s")
                 request.addOption("-o", "$outputDir/%(title)s [%(id)s].%(ext)s")
                 val response = YoutubeDL.getInstance().execute(request, processId) { progress, etaInSeconds, line ->
                     emitProgress(processId, progress, etaInSeconds, line)

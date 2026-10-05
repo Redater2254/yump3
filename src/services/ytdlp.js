@@ -100,6 +100,21 @@ export async function searchArtTracks(query, limit = 8) {
   return entries.map(mapEntry);
 }
 
+/**
+ * Flat metadata for a single video URL. Unlike a `ytsearch<id>` lookup this
+ * always returns the requested video, so direct URL/ID adds get real names.
+ */
+export async function getVideoInfo(url) {
+  if (!YtDlp) return null;
+  const inited = await initYtDlp();
+  if (!inited) return null;
+  const out = await YtDlp.playlistInfo(url, 1);
+  const data = JSON.parse(out);
+  const entry = data.entries && data.entries.length ? data.entries[0] : data;
+  if (!entry || !entry.id) return null;
+  return mapEntry(entry);
+}
+
 /** Playlist metadata via yt-dlp. Returns { title, tracks }. */
 export async function getPlaylistInfo(url, limit = 100) {
   if (!YtDlp) throw new Error('downloader unavailable');
@@ -179,23 +194,40 @@ export async function downloadTrack(youtubeId, onProgress) {
     (f) => f.includes(`[${youtubeId}]`) && /\.(jpe?g|png|webp)$/i.test(f)
   );
 
-  // yt-dlp prints the real duration (seconds) via --print "%(duration)s".
+  // yt-dlp prints "YMP3META|field|value" lines (see the native download method).
+  // This is the real metadata of the downloaded video, so the library entry is
+  // correct even when the caller only had a placeholder.
+  const meta = { title: '', track: '', artist: '', uploader: '' };
   let duration = 0;
-  try {
-    const lines = String(result || '')
-      .trim()
-      .split('\n')
-      .filter(Boolean);
-    const parsed = parseFloat(lines[lines.length - 1]);
-    if (Number.isFinite(parsed) && parsed > 0) duration = parsed;
-  } catch (e) {
-    // keep 0
+  for (const line of String(result || '').split('\n')) {
+    if (!line.startsWith('YMP3META|')) continue;
+    const parts = line.split('|');
+    const field = parts[1];
+    const value = parts.slice(2).join('|').trim();
+    if (field === 'duration') {
+      const parsed = parseFloat(value);
+      if (Number.isFinite(parsed) && parsed > 0) duration = parsed;
+    } else if (field in meta) {
+      meta[field] = value === 'NA' ? '' : value;
+    }
+  }
+  if (duration === 0) {
+    // Fallback for an older native build that printed the duration alone.
+    try {
+      const lines = String(result || '').trim().split('\n').filter(Boolean);
+      const parsed = parseFloat(lines[lines.length - 1]);
+      if (Number.isFinite(parsed) && parsed > 0) duration = parsed;
+    } catch (e) {
+      // keep 0
+    }
   }
 
   return {
     filePath: `${LIBRARY_DIR}${match}`,
     duration,
     thumbnailPath: thumbMatch ? `${LIBRARY_DIR}${thumbMatch}` : null,
+    title: meta.track || meta.title,
+    artist: meta.artist || meta.uploader,
   };
 }
 
