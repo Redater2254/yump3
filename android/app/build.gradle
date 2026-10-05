@@ -92,8 +92,8 @@ android {
         applicationId 'com.yump3'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
-        versionName "1.6.0"
+        versionCode 17
+        versionName "1.6.1"
 
         ndk {
             // youtubedl-android bundles large native libs; arm64 covers modern devices.

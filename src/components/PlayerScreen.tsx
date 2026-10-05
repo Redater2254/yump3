@@ -32,7 +32,6 @@ import {
 } from '../services/audioEffects';
 import { setBitPerfectMode } from '../services/player';
 import { StageLight } from './player/StageLight';
-import { WaveformStrip } from './player/WaveformStrip';
 import {
   getCoverPalette,
   getStageLightEnabled,
@@ -44,6 +43,7 @@ import type { CoverPalette, WaveformData } from '../services/lighting';
 
 const { width, height } = Dimensions.get('window');
 const GLOW = require('../../assets/images/glow.png');
+const HALO = require('../../assets/images/halo.png');
 
 export const PlayerScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -118,14 +118,25 @@ export const PlayerScreen: React.FC = () => {
     const idx = Math.round(posSV.value * wave.hz);
     const energy = idx >= 0 && idx < wave.energy.length ? wave.energy[idx] / 255 : 0;
     const low = idx >= 0 && idx < wave.low.length ? wave.low[idx] / 255 : 0;
-    energySV.value += (energy - energySV.value) * 0.3;
-    bassSV.value += (low - bassSV.value) * 0.18;
+    energySV.value += (energy - energySV.value) * 0.35;
+    bassSV.value += (low - bassSV.value) * 0.24;
   });
 
-  const haloStyle = useAnimatedStyle(() => ({
-    opacity: stageLight ? 0.16 + bassSV.value * 0.5 : 0,
-    transform: [{ scale: 0.98 + bassSV.value * 0.1 }],
-  }));
+  const haloStyle = useAnimatedStyle(() => {
+    const pulse = energySV.value * 0.45 + bassSV.value * 0.55;
+    return {
+      opacity: stageLight ? 0.42 + pulse * 0.58 : 0,
+      transform: [{ scale: 1 + pulse * 0.09 }],
+    };
+  });
+
+  const auraStyle = useAnimatedStyle(() => {
+    const pulse = energySV.value * 0.45 + bassSV.value * 0.55;
+    return {
+      opacity: stageLight ? 0.14 + pulse * 0.34 : 0,
+      transform: [{ scale: 0.97 + pulse * 0.12 }],
+    };
+  });
 
   const progressPanResponder = useScrubber({
     getWidth: () => progressBarWidthRef.current,
@@ -408,6 +419,7 @@ export const PlayerScreen: React.FC = () => {
     : progress.position;
 
   const glowColor = coverColors?.glow || coverColors?.wash || palette.accent;
+  const washColor = coverColors?.wash || coverColors?.glow || palette.accent;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -444,22 +456,44 @@ export const PlayerScreen: React.FC = () => {
             <GestureDetector gesture={swipeGesture}>
               <View style={[styles.artStage, { width: artSize, height: artSize }]}>
                 {stageLight && (
-                  <Animated.Image
-                    source={GLOW}
-                    style={[
-                      styles.artHalo,
-                      {
-                        width: artSize * 1.8,
-                        height: artSize * 1.8,
-                        left: -artSize * 0.4,
-                        top: -artSize * 0.4,
-                        tintColor: glowColor,
-                      },
-                      haloStyle,
-                    ]}
-                  />
+                  <>
+                    <Animated.Image
+                      source={GLOW}
+                      style={[
+                        styles.artHalo,
+                        {
+                          width: artSize * 2.4,
+                          height: artSize * 2.4,
+                          left: -artSize * 0.7,
+                          top: -artSize * 0.7,
+                          tintColor: washColor,
+                        },
+                        auraStyle,
+                      ]}
+                    />
+                    <Animated.Image
+                      source={HALO}
+                      style={[
+                        styles.artHalo,
+                        {
+                          width: artSize * 1.7,
+                          height: artSize * 1.7,
+                          left: -artSize * 0.35,
+                          top: -artSize * 0.35,
+                          tintColor: glowColor,
+                        },
+                        haloStyle,
+                      ]}
+                    />
+                  </>
                 )}
-                <View style={[styles.artContainer, { width: artSize, height: artSize }]}>
+                <View
+                  style={[
+                    styles.artContainer,
+                    { width: artSize, height: artSize },
+                    stageLight && styles.artContainerLit,
+                  ]}
+                >
                   <TrackArtwork
                     youtubeId={currentTrack.youtube_id}
                     uri={currentTrack.thumbnail_path || currentTrack.thumbnail_url || currentTrack.artwork}
@@ -515,15 +549,6 @@ export const PlayerScreen: React.FC = () => {
               <Text style={styles.timeText}>{formatTime(progress.duration)}</Text>
             </View>
           </View>
-
-          {stageLight && hasWaveform && (
-            <WaveformStrip
-              dataSV={waveSV}
-              position={posSV}
-              playingSV={playingSV}
-              color={glowColor}
-            />
-          )}
 
           <View style={styles.controlsRow}>
             <PressableScale onPress={handleToggleShuffle} style={styles.secondaryControl} activeScale={0.85} hitSlop={HIT_SLOP}>
@@ -652,6 +677,10 @@ const styles = StyleSheet.create({
   artHalo: {
     position: 'absolute',
     pointerEvents: 'none',
+  },
+  artContainerLit: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   artContainer: {
     borderRadius: 20,
