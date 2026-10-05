@@ -289,6 +289,15 @@ export async function setupPlayer() {
   if (isSetup) return true;
 
   try {
+    // Restore bit-perfect mode before playback starts so fades/rate ramps are
+    // skipped even when the player tab was never opened in this session.
+    try {
+      const raw = await AsyncStorage.getItem('yump3_audio_effects');
+      if (raw) bitPerfectMode = !!JSON.parse(raw)?.bitPerfect;
+    } catch (e) {
+      // ignore
+    }
+
     await TrackPlayer.setupPlayer({ maxCacheSize: 1024 * 1024 * 100 });
 
     await TrackPlayer.updateOptions({

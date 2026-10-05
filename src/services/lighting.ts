@@ -120,35 +120,73 @@ export async function getCoverPalette(track: any): Promise<CoverPalette | null> 
 
 /* --------------------------- setting + events --------------------------- */
 
-const SETTING_KEY = 'yump3_stage_light';
-
-let stageLightEnabled = true;
-const stageLightListeners = new Set<(enabled: boolean) => void>();
-
-export function getStageLightEnabled(): boolean {
-  return stageLightEnabled;
+export interface StageLightSettings {
+  enabled: boolean;
+  /** Overall brightness multiplier (0.5 - 1.6). */
+  intensity: number;
+  /** Glow spread multiplier (0.8 - 1.4). */
+  size: number;
+  /** How strongly the light reacts to the music (0 - 1.5). */
+  pulse: number;
 }
 
-export function subscribeStageLight(listener: (enabled: boolean) => void): () => void {
+export const DEFAULT_STAGE_LIGHT: StageLightSettings = {
+  enabled: true,
+  intensity: 1,
+  size: 1,
+  pulse: 1,
+};
+
+/** Presets shown in the lighting settings sheet. */
+export const STAGE_LIGHT_PRESETS: { id: string; label: string; settings: Partial<StageLightSettings> }[] = [
+  { id: 'soft', label: '은은하게', settings: { intensity: 0.65, size: 0.9, pulse: 0.65 } },
+  { id: 'basic', label: '기본', settings: { intensity: 1, size: 1, pulse: 1 } },
+  { id: 'vivid', label: '화려하게', settings: { intensity: 1.4, size: 1.25, pulse: 1.4 } },
+];
+
+const SETTING_KEY = 'yump3_stage_light';
+
+let stageLightSettings: StageLightSettings = { ...DEFAULT_STAGE_LIGHT };
+const stageLightListeners = new Set<(settings: StageLightSettings) => void>();
+
+function emitStageLight() {
+  stageLightListeners.forEach((listener) => listener(stageLightSettings));
+}
+
+export function getStageLightSettings(): StageLightSettings {
+  return stageLightSettings;
+}
+
+export function subscribeStageLight(
+  listener: (settings: StageLightSettings) => void
+): () => void {
   stageLightListeners.add(listener);
   return () => {
     stageLightListeners.delete(listener);
   };
 }
 
-export async function loadStageLightEnabled(): Promise<boolean> {
+export async function loadStageLightSettings(): Promise<StageLightSettings> {
   try {
     const stored = await AsyncStorage.getItem(SETTING_KEY);
-    stageLightEnabled = stored !== 'false';
+    if (stored === 'true' || stored === 'false') {
+      // Older builds stored a plain boolean.
+      stageLightSettings = { ...DEFAULT_STAGE_LIGHT, enabled: stored === 'true' };
+    } else if (stored) {
+      stageLightSettings = { ...DEFAULT_STAGE_LIGHT, ...JSON.parse(stored) };
+    }
   } catch (e) {
-    stageLightEnabled = true;
+    stageLightSettings = { ...DEFAULT_STAGE_LIGHT };
   }
-  stageLightListeners.forEach((listener) => listener(stageLightEnabled));
-  return stageLightEnabled;
+  emitStageLight();
+  return stageLightSettings;
 }
 
-export async function setStageLightEnabled(enabled: boolean): Promise<void> {
-  stageLightEnabled = enabled;
-  stageLightListeners.forEach((listener) => listener(enabled));
-  await AsyncStorage.setItem(SETTING_KEY, enabled ? 'true' : 'false').catch(() => {});
+export async function updateStageLightSettings(
+  patch: Partial<StageLightSettings>
+): Promise<StageLightSettings> {
+  stageLightSettings = { ...stageLightSettings, ...patch };
+  emitStageLight();
+  await AsyncStorage.setItem(SETTING_KEY, JSON.stringify(stageLightSettings)).catch(() => {});
+  return stageLightSettings;
 }

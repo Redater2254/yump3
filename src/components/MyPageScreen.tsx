@@ -39,11 +39,15 @@ import {
 import { setBitPerfectMode } from '../services/player';
 import { PlaybackModal } from './mypage/PlaybackModal';
 import {
-  getStageLightEnabled,
-  loadStageLightEnabled,
-  setStageLightEnabled,
+  getCoverPalette,
+  getStageLightSettings,
+  loadStageLightSettings,
   subscribeStageLight,
+  updateStageLightSettings,
 } from '../services/lighting';
+import type { CoverPalette, StageLightSettings } from '../services/lighting';
+import { LightingModal } from './mypage/LightingModal';
+import TrackPlayer from 'react-native-track-player';
 import { AudioModal } from './mypage/AudioModal';
 
 const BETA_TRANSITION_KEY = 'yump3_beta_smart_transition';
@@ -60,7 +64,12 @@ export const MyPageScreen: React.FC = () => {
   const [betaSmartTransition, setBetaSmartTransition] = useState(false);
   const [betaSleepTimer, setBetaSleepTimer] = useState(false);
   const [hapticsEnabled, setHapticsEnabledState] = useState(true);
-  const [stageLight, setStageLightState] = useState(getStageLightEnabled());
+  const [stageLightSettings, setStageLightSettings] = useState<StageLightSettings>(
+    getStageLightSettings()
+  );
+  const [showLightingModal, setShowLightingModal] = useState(false);
+  const [previewTrack, setPreviewTrack] = useState<any>(null);
+  const [previewColors, setPreviewColors] = useState<CoverPalette | null>(null);
   const [audioQuality, setAudioQualityState] = useState('best');
   const [showBetaModal, setShowBetaModal] = useState(false);
   const [showAudioModal, setShowAudioModal] = useState(false);
@@ -216,11 +225,31 @@ export const MyPageScreen: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Stage light setting lives in the lighting service so the player can react.
+  // Stage light settings live in the lighting service so the player can react.
   useEffect(() => {
-    loadStageLightEnabled();
-    return subscribeStageLight(setStageLightState);
+    loadStageLightSettings();
+    return subscribeStageLight(setStageLightSettings);
   }, []);
+
+  // Cover + palette for the lighting preview (active track, sample fallback).
+  useEffect(() => {
+    if (!showLightingModal) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const track = await TrackPlayer.getActiveTrack();
+        if (cancelled) return;
+        setPreviewTrack(track || null);
+        const colors = track ? await getCoverPalette(track) : null;
+        if (!cancelled) setPreviewColors(colors);
+      } catch (e) {
+        // keep the sample preview
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showLightingModal]);
 
   useEffect(() => {
     if (!updateActive) return;
@@ -526,6 +555,26 @@ export const MyPageScreen: React.FC = () => {
           <Ionicons name="chevron-forward" size={18} color={palette.textDim} />
         </PressableScale>
 
+        {/* Stage light */}
+        <PressableScale
+          style={styles.betaRow}
+          onPress={() => setShowLightingModal(true)}
+          activeScale={0.98}
+        >
+          <View style={styles.betaRowLeft}>
+            <View style={styles.betaFlask}>
+              <Ionicons name="color-wand-outline" size={20} color={palette.accent} />
+            </View>
+            <View style={{ marginLeft: 12 }}>
+              <Text style={styles.betaRowTitle}>조명 효과</Text>
+              <Text style={styles.betaRowSub}>
+                {stageLightSettings.enabled ? '켜짐' : '꺼짐'} · 커버 색 앰비언트
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={palette.textDim} />
+        </PressableScale>
+
         {/* Beta lab */}
         <PressableScale
           style={styles.betaRow}
@@ -585,8 +634,6 @@ export const MyPageScreen: React.FC = () => {
         onToggleSleepTimer={() => toggleSetting('timer')}
         hapticsEnabled={hapticsEnabled}
         onToggleHaptics={() => toggleSetting('haptics')}
-        stageLight={stageLight}
-        onToggleStageLight={() => setStageLightEnabled(!stageLight)}
         sleepRemaining={sleepRemaining}
         selectedMinutes={selectedMinutes}
         onStartTimer={handleStartTimer}
@@ -600,6 +647,20 @@ export const MyPageScreen: React.FC = () => {
         info={audioInfo}
         onLocal={updateAudioLocal}
         onCommit={commitAudio}
+      />
+
+      <LightingModal
+        visible={showLightingModal}
+        onClose={() => setShowLightingModal(false)}
+        settings={stageLightSettings}
+        onChange={updateStageLightSettings}
+        cover={
+          previewTrack?.thumbnail_path ||
+          previewTrack?.thumbnail_url ||
+          previewTrack?.artwork ||
+          null
+        }
+        colors={previewColors}
       />
     </View>
   );

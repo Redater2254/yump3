@@ -45,6 +45,13 @@ export const AudioModal: React.FC<Props> = ({
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
+          {settings.bitPerfect && (
+            <Text style={styles.welcome}>
+              원음 모드가 켜져 있어 오디오 효과가 적용되지 않습니다. 효과를 쓰려면 재생
+              설정에서 원음 모드를 꺼주세요.
+            </Text>
+          )}
+
           {!info.available && (
             <Text style={styles.welcome}>
               이 기기에서는 이퀄라이저/3D 효과를 지원하지 않습니다.

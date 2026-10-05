@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import { downloadTrack, getVideoInfo, getPlaylistInfo, friendlyYtDlpError } from '../services/ytdlp';
+import { getWaveform } from '../services/lighting';
 import { addTrack, getTrack, createPlaylist, addTracksToPlaylist } from '../services/library';
 
 const { DownloadNotifier } = NativeModules;
@@ -166,6 +167,10 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         errorMsg: undefined,
         errorDetail: undefined,
       });
+
+      // Warm the stage-light cache in the background so the first play has the
+      // waveform ready instead of waiting for the decode.
+      void getWaveform({ youtube_id: youtubeId, file_path: filePath }).catch(() => {});
       return true;
     } catch (err: any) {
       const detail = String(err?.message || err);

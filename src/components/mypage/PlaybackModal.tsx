@@ -16,8 +16,6 @@ interface Props {
   onToggleSleepTimer: () => void;
   hapticsEnabled: boolean;
   onToggleHaptics: () => void;
-  stageLight: boolean;
-  onToggleStageLight: () => void;
   sleepRemaining: number;
   selectedMinutes: number | null;
   onStartTimer: (minutes: number) => void;
@@ -38,8 +36,6 @@ export const PlaybackModal: React.FC<Props> = ({
   onToggleSleepTimer,
   hapticsEnabled,
   onToggleHaptics,
-  stageLight,
-  onToggleStageLight,
   sleepRemaining,
   selectedMinutes,
   onStartTimer,
@@ -153,17 +149,6 @@ export const PlaybackModal: React.FC<Props> = ({
               {renderToggle(hapticsEnabled, onToggleHaptics, '진동 피드백')}
             </View>
 
-            <View style={styles.divider} />
-
-            <View style={styles.settingRow}>
-              <View style={styles.settingText}>
-                <Text style={styles.settingTitle}>조명 효과 (무대 조명)</Text>
-                <Text style={styles.settingDesc}>
-                  커버 색과 곡 파형에 맞춰 화면 조명이 움직입니다.
-                </Text>
-              </View>
-              {renderToggle(stageLight, onToggleStageLight, '조명 효과')}
-            </View>
           </ScrollView>
 
           <PressableScale style={styles.closeBtn} onPress={onClose} activeScale={0.97}>

@@ -89,8 +89,10 @@ export async function getAudioEffectsInfo(): Promise<AudioEffectsInfo> {
 export async function applyAudioSettings(settings: AudioEffectsSettings): Promise<boolean> {
   if (!AudioEffects) return false;
   try {
-    const ok = await AudioEffects.setEnabled(!!settings.enabled);
-    if (!ok) return false;
+    // Bit-perfect bypasses every DSP stage; the stored EQ preference is kept
+    // and comes back when the mode is turned off.
+    const ok = await AudioEffects.setEnabled(settings.bitPerfect ? false : !!settings.enabled);
+    if (!ok || settings.bitPerfect) return ok;
     if (settings.preset !== null && settings.preset !== undefined) {
       await AudioEffects.setPreset(settings.preset);
     } else if (Array.isArray(settings.bandLevels)) {

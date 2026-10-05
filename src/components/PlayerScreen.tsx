@@ -33,12 +33,13 @@ import {
 import { setBitPerfectMode } from '../services/player';
 import {
   getCoverPalette,
-  getStageLightEnabled,
+  getStageLightSettings,
   getWaveform,
-  loadStageLightEnabled,
+  loadStageLightSettings,
   subscribeStageLight,
 } from '../services/lighting';
-import type { CoverPalette, WaveformData } from '../services/lighting';
+import type { CoverPalette, StageLightSettings, WaveformData } from '../services/lighting';
+import { useAlert } from '../context/AlertContext';
 
 const { width, height } = Dimensions.get('window');
 const GLOW = require('../../assets/images/glow.png');
@@ -46,6 +47,7 @@ const HALO = require('../../assets/images/halo.png');
 
 export const PlayerScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { showToast } = useAlert();
   const artSize = Math.min(width * 0.72, height * 0.32, 320);
   const playbackState = usePlaybackState();
   const progress = useProgress();
@@ -78,7 +80,9 @@ export const PlayerScreen: React.FC = () => {
   // Stage light (cover-colored ambient lighting driven by the waveform).
   const [coverColors, setCoverColors] = useState<CoverPalette | null>(null);
   const [hasWaveform, setHasWaveform] = useState(false);
-  const [stageLight, setStageLight] = useState(getStageLightEnabled());
+  const [stageLightSettings, setStageLightSettings] = useState<StageLightSettings>(
+    getStageLightSettings()
+  );
   
 
   // Sync refs to avoid stale closures inside PanResponder
@@ -122,17 +126,21 @@ export const PlayerScreen: React.FC = () => {
   });
 
   const haloStyle = useAnimatedStyle(() => {
-    const pulse = energySV.value * 0.45 + bassSV.value * 0.55;
+    const pulse = (energySV.value * 0.45 + bassSV.value * 0.55) * stageLightSettings.pulse;
     return {
-      opacity: stageLight ? 0.24 + pulse * 0.3 : 0,
+      opacity: stageLightSettings.enabled
+        ? Math.min(1, (0.24 + pulse * 0.3) * stageLightSettings.intensity)
+        : 0,
       transform: [{ scale: 1 + pulse * 0.05 }],
     };
   });
 
   const auraStyle = useAnimatedStyle(() => {
-    const pulse = energySV.value * 0.45 + bassSV.value * 0.55;
+    const pulse = (energySV.value * 0.45 + bassSV.value * 0.55) * stageLightSettings.pulse;
     return {
-      opacity: stageLight ? 0.08 + pulse * 0.16 : 0,
+      opacity: stageLightSettings.enabled
+        ? Math.min(1, (0.08 + pulse * 0.16) * stageLightSettings.intensity)
+        : 0,
       transform: [{ scale: 0.98 + pulse * 0.06 }],
     };
   });
@@ -227,20 +235,17 @@ export const PlayerScreen: React.FC = () => {
     fetchCurrentTrack();
     getInitialVolume();
     getInitialRepeatMode();
-    loadAudioSettings().then((settings) => setBitPerfect(settings.bitPerfect));
+    loadAudioSettings().then((settings) => {
+      setBitPerfect(settings.bitPerfect);
+      // Apply the saved mode to the playback engine on startup.
+      setBitPerfectMode(settings.bitPerfect);
+    });
   }, []);
 
-  // Stage light setting is shared with the playback sheet on My Page.
+  // Stage light settings are shared with the sheet on My Page.
   useEffect(() => {
-    let mounted = true;
-    loadStageLightEnabled().then((value) => {
-      if (mounted) setStageLight(value);
-    });
-    const unsubscribe = subscribeStageLight(setStageLight);
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
+    loadStageLightSettings();
+    return subscribeStageLight(setStageLightSettings);
   }, []);
 
   useEffect(() => {
@@ -248,8 +253,8 @@ export const PlayerScreen: React.FC = () => {
   }, [isPlaying]);
 
   useEffect(() => {
-    lightSV.value = stageLight && hasWaveform ? 1 : 0;
-  }, [stageLight, hasWaveform]);
+    lightSV.value = stageLightSettings.enabled && hasWaveform ? 1 : 0;
+  }, [stageLightSettings.enabled, hasWaveform]);
 
   // Keep the animation clock close to the real position without jitter.
   useEffect(() => {
@@ -266,22 +271,27 @@ export const PlayerScreen: React.FC = () => {
     setCoverColors(null);
     energySV.value = 0;
     bassSV.value = 0;
-    if (!stageLight || !currentTrack?.id) return;
+    if (!stageLightSettings.enabled || !currentTrack?.id) return;
     const track = currentTrack;
-    (async () => {
-      const [wave, colors] = await Promise.all([getWaveform(track), getCoverPalette(track)]);
-      if (cancelled) return;
-      if (wave) {
+    // Load independently: the cover palette is fast while the waveform decode
+    // takes seconds, and the color must not wait for it.
+    getCoverPalette(track)
+      .then((colors) => {
+        if (!cancelled && colors) setCoverColors(colors);
+      })
+      .catch(() => {});
+    getWaveform(track)
+      .then((wave) => {
+        if (cancelled || !wave) return;
         waveSV.value = wave;
         posSV.value = positionRef.current || 0;
         setHasWaveform(true);
-      }
-      if (colors) setCoverColors(colors);
-    })();
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [currentTrack?.id, stageLight]);
+  }, [currentTrack?.id, stageLightSettings.enabled]);
 
   const handleToggleBitPerfect = async () => {
     const settings = await loadAudioSettings();
@@ -290,6 +300,7 @@ export const PlayerScreen: React.FC = () => {
     setBitPerfectMode(next.bitPerfect);
     await saveAudioSettings(next);
     await applyAudioSettings(next);
+    showToast(next.bitPerfect ? '원음 모드 켜짐 (효과 우회)' : '원음 모드 꺼짐');
   };
 
   useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], (event) => {
@@ -419,6 +430,9 @@ export const PlayerScreen: React.FC = () => {
 
   const glowColor = coverColors?.glow || coverColors?.wash || palette.accent;
   const washColor = coverColors?.wash || coverColors?.glow || palette.accent;
+  const spread = stageLightSettings.size;
+  const auraSize = artSize * 1.9 * spread;
+  const haloSize = artSize * 1.44 * spread;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -448,17 +462,17 @@ export const PlayerScreen: React.FC = () => {
 
             <GestureDetector gesture={swipeGesture}>
               <View style={[styles.artStage, { width: artSize, height: artSize }]}>
-                {stageLight && (
+                {stageLightSettings.enabled && (
                   <>
                     <Animated.Image
                       source={GLOW}
                       style={[
                         styles.artHalo,
                         {
-                          width: artSize * 1.9,
-                          height: artSize * 1.9,
-                          left: -artSize * 0.45,
-                          top: -artSize * 0.45,
+                          width: auraSize,
+                          height: auraSize,
+                          left: (artSize - auraSize) / 2,
+                          top: (artSize - auraSize) / 2,
                           tintColor: washColor,
                         },
                         auraStyle,
@@ -469,10 +483,10 @@ export const PlayerScreen: React.FC = () => {
                       style={[
                         styles.artHalo,
                         {
-                          width: artSize * 1.44,
-                          height: artSize * 1.44,
-                          left: -artSize * 0.22,
-                          top: -artSize * 0.22,
+                          width: haloSize,
+                          height: haloSize,
+                          left: (artSize - haloSize) / 2,
+                          top: (artSize - haloSize) / 2,
                           tintColor: glowColor,
                         },
                         haloStyle,
@@ -484,7 +498,7 @@ export const PlayerScreen: React.FC = () => {
                   style={[
                     styles.artContainer,
                     { width: artSize, height: artSize },
-                    stageLight && styles.artContainerLit,
+                    stageLightSettings.enabled && styles.artContainerLit,
                   ]}
                 >
                   <TrackArtwork
