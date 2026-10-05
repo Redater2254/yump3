@@ -31,7 +31,6 @@ import {
   applyAudioSettings,
 } from '../services/audioEffects';
 import { setBitPerfectMode } from '../services/player';
-import { StageLight } from './player/StageLight';
 import {
   getCoverPalette,
   getStageLightEnabled,
@@ -125,16 +124,16 @@ export const PlayerScreen: React.FC = () => {
   const haloStyle = useAnimatedStyle(() => {
     const pulse = energySV.value * 0.45 + bassSV.value * 0.55;
     return {
-      opacity: stageLight ? 0.42 + pulse * 0.58 : 0,
-      transform: [{ scale: 1 + pulse * 0.09 }],
+      opacity: stageLight ? 0.24 + pulse * 0.3 : 0,
+      transform: [{ scale: 1 + pulse * 0.05 }],
     };
   });
 
   const auraStyle = useAnimatedStyle(() => {
     const pulse = energySV.value * 0.45 + bassSV.value * 0.55;
     return {
-      opacity: stageLight ? 0.14 + pulse * 0.34 : 0,
-      transform: [{ scale: 0.97 + pulse * 0.12 }],
+      opacity: stageLight ? 0.05 + pulse * 0.1 : 0,
+      transform: [{ scale: 0.98 + pulse * 0.06 }],
     };
   });
 
@@ -423,12 +422,6 @@ export const PlayerScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <StageLight
-        colors={coverColors}
-        energy={energySV}
-        bass={bassSV}
-        enabled={stageLight && hasWaveform}
-      />
       {currentTrack ? (
         <ScrollView
           style={styles.scroll}
@@ -462,10 +455,10 @@ export const PlayerScreen: React.FC = () => {
                       style={[
                         styles.artHalo,
                         {
-                          width: artSize * 2.4,
-                          height: artSize * 2.4,
-                          left: -artSize * 0.7,
-                          top: -artSize * 0.7,
+                          width: artSize * 1.8,
+                          height: artSize * 1.8,
+                          left: -artSize * 0.4,
+                          top: -artSize * 0.4,
                           tintColor: washColor,
                         },
                         auraStyle,
